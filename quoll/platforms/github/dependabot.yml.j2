@@ -1,0 +1,39 @@
+version: 2
+updates:
+{% for ecosystem, directory in ecosystems %}
+  - package-ecosystem: "{{ ecosystem }}"
+    directory: "{{ directory }}"
+    schedule:
+      interval: "weekly"
+    # A new release waits a week: compromised versions are usually pulled by then.
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+
+{% endfor %}
+{% for directory in docker %}
+  - package-ecosystem: "docker"
+    directory: "{{ directory }}"
+    schedule:
+      interval: "weekly"
+    # A new release waits a week: compromised versions are usually pulled by then.
+    cooldown:
+      default-days: 7
+    groups:
+      base-images:
+        patterns: ["*"]
+
+{% endfor %}
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    # A new release waits a week: compromised versions are usually pulled by then.
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
