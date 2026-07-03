@@ -1,0 +1,40 @@
+{% block base %}
+FROM dunglas/frankenphp:1-php{{ cfg.version }} AS base
+{{ os_updates }}
+{% if extensions %}
+RUN install-php-extensions {{ extensions | join(" ") }}
+{% endif %}
+{% if env %}
+ENV {% for key, value in env.items() %}{{ key }}={{ value }}{{ " \\\n    " if not loop.last }}{% endfor %}
+
+{% endif %}
+WORKDIR /app
+{% endblock %}
+
+{% block build %}
+FROM base AS build
+RUN install-php-extensions @composer
+ENV COMPOSER_CACHE_DIR=/tmp/composer-cache
+# Dependencies first: code changes don't reinstall them.
+COPY composer.json {{ "composer.lock " if lockfile }}./
+RUN --mount=type=cache,target=/tmp/composer-cache \
+    composer install --no-dev --prefer-dist --no-interaction --no-progress --no-scripts --no-autoloader
+COPY . .
+RUN composer dump-autoload --no-dev --optimize
+{% for command in post_build %}
+RUN {{ command }}
+{% endfor %}
+{% endblock %}
+
+{% block runtime %}
+FROM base
+# Plain HTTP on an unprivileged port: the container runs as non-root, a proxy terminates TLS.
+ENV SERVER_NAME=:{{ cfg.port }}{{ " \\\n    SERVER_ROOT=/app" if not public }}
+# A numeric user: Kubernetes can then check it isn't root (runAsNonRoot).
+RUN useradd --uid 10001 --no-create-home app \
+    && setcap -r /usr/local/bin/frankenphp \
+    && chown -R app:app /config/caddy /data/caddy
+COPY --from=build --chown=app:app /app /app
+USER 10001
+EXPOSE {{ cfg.port }}
+{% endblock %}

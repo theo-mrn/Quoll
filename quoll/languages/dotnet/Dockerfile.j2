@@ -1,0 +1,21 @@
+{% block build %}
+FROM mcr.microsoft.com/dotnet/sdk:{{ cfg.version }} AS build
+WORKDIR /src
+COPY . .
+RUN --mount=type=cache,target=/root/.nuget/packages \
+    {{ cfg.build_command }}
+{% endblock %}
+
+{% block runtime %}
+FROM mcr.microsoft.com/dotnet/{{ "aspnet" if web else "runtime" }}:{{ cfg.version }}
+{{ os_updates }}
+WORKDIR /app
+COPY --from=build /out .
+{% if web %}
+ENV ASPNETCORE_HTTP_PORTS={{ cfg.port }}
+{% endif %}
+# Non-root user provided by the .NET images.
+USER $APP_UID
+EXPOSE {{ cfg.port }}
+CMD {{ cfg.command | exec_form }}
+{% endblock %}

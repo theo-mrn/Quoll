@@ -1,0 +1,61 @@
+{% block build %}
+FROM python:{{ cfg.version }}-slim AS build
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+WORKDIR /app
+{% if cfg.package_manager == "uv" %}
+COPY --from={{ uv_image }} /uv /uvx /bin/
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=0
+# Dependencies first: code changes don't reinstall them.
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+{% if lockfile %}
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+{% endif %}
+    uv sync {{ "--locked " if lockfile }}--no-dev --no-install-project
+COPY . .
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync {{ "--locked " if lockfile }}--no-dev
+{% elif cfg.package_manager == "poetry" %}
+ENV POETRY_NO_INTERACTION=1 \
+    POETRY_VIRTUALENVS_IN_PROJECT=1
+RUN --mount=type=cache,target=/root/.cache/pip pip install poetry
+# Dependencies first: code changes don't reinstall them.
+COPY pyproject.toml {{ "poetry.lock " if lockfile }}./
+RUN --mount=type=cache,target=/root/.cache/pypoetry poetry install --only main --no-root
+COPY . .
+RUN --mount=type=cache,target=/root/.cache/pypoetry poetry install --only main
+{% else %}
+RUN python -m venv .venv
+ENV PATH="/app/.venv/bin:$PATH"
+{% if requirements %}
+# Dependencies first: code changes don't reinstall them.
+COPY requirements.txt .
+RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements.txt
+{% endif %}
+COPY . .
+{% if installable %}
+RUN --mount=type=cache,target=/root/.cache/pip pip install .
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block runtime %}
+FROM python:{{ cfg.version }}-slim
+{{ os_updates }}
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+{% if src_layout %}
+    PYTHONPATH=/app/src \
+{% endif %}
+    PATH="/app/.venv/bin:$PATH"
+# A numeric user: Kubernetes can then check it isn't root (runAsNonRoot).
+RUN groupadd --system --gid 10001 app && useradd --system --uid 10001 --gid app --no-create-home app
+WORKDIR /app
+COPY --from=build --chown=app:app /app /app
+USER 10001:10001
+EXPOSE {{ cfg.port }}
+CMD {{ cfg.command | exec_form }}
+{% endblock %}

@@ -1,0 +1,28 @@
+{% block build %}
+FROM {{ build_image }} AS build
+WORKDIR /src
+COPY . .
+RUN --mount=type=cache,target={{ cache }} \
+{% if wrapper %}
+    chmod +x {{ wrapper }} \
+    && {{ cfg.build_command }} \
+{% else %}
+    {{ cfg.build_command }} \
+{% endif %}
+    && mkdir -p /out \
+    && cp "$(find {{ jar_dir }} -maxdepth 1 -name '*.jar' ! -name '*-plain.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | head -n 1)" /out/app.jar
+{% endblock %}
+
+{% block runtime %}
+FROM eclipse-temurin:{{ cfg.version }}-jre
+{{ os_updates }}
+# A numeric user: Kubernetes can then check it isn't root (runAsNonRoot).
+RUN groupadd --system --gid 10001 app && useradd --system --uid 10001 --gid app --no-create-home app
+WORKDIR /app
+{% block app_files %}
+COPY --from=build --chown=app:app /out/app.jar /app/app.jar
+{% endblock %}
+USER 10001:10001
+EXPOSE {{ cfg.port }}
+CMD {{ cfg.command | exec_form }}
+{% endblock %}

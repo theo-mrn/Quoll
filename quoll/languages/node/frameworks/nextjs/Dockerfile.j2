@@ -1,0 +1,14 @@
+{% extends "node/Dockerfile.j2" %}
+
+{% block app_files %}
+{% if standalone %}
+# output: "standalone" bundles the server with only the dependencies it uses.
+{% if public %}
+COPY --from=build --chown={{ user }}:{{ user }} /app/public ./public
+{% endif %}
+COPY --from=build --chown={{ user }}:{{ user }} /app/.next/standalone ./
+COPY --from=build --chown={{ user }}:{{ user }} /app/.next/static ./.next/static
+{% else %}
+{{ super() }}
+{%- endif %}
+{% endblock %}

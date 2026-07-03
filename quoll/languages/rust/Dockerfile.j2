@@ -1,0 +1,23 @@
+{% block build %}
+FROM rust:{{ rust_tag }}-slim AS build
+{% if openssl %}
+RUN apt-get update && apt-get install --no-install-recommends -y pkg-config libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+{% endif %}
+WORKDIR /src
+COPY . .
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/src/target \
+    {{ cfg.build_command }} \
+    && cp target/release/{{ binary }} /app
+{% endblock %}
+
+{% block runtime %}
+# glibc and OpenSSL on distroless: no shell, no package manager, non-root.
+FROM gcr.io/distroless/cc-debian13:nonroot
+COPY --from=build /app /app
+# distroless' nonroot, numeric: Kubernetes can then check it isn't root (runAsNonRoot).
+USER 65532:65532
+EXPOSE {{ cfg.port }}
+CMD {{ cfg.command | exec_form }}
+{% endblock %}

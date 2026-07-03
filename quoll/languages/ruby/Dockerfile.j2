@@ -1,0 +1,45 @@
+{% block base %}
+FROM ruby:{{ cfg.version }}-slim AS base
+{{ os_updates }}
+WORKDIR {{ workdir }}
+{% if runtime_packages %}
+RUN apt-get update -qq \
+    && apt-get install --no-install-recommends -y {{ runtime_packages | join(" ") }} \
+    && rm -rf /var/lib/apt/lists/*
+{% endif %}
+ENV {% for key, value in env.items() %}{{ key }}={{ value }}{{ " \\\n    " if not loop.last }}{% endfor %}
+
+{% endblock %}
+
+{% block build %}
+FROM base AS build
+RUN apt-get update -qq \
+    && apt-get install --no-install-recommends -y {{ (["build-essential", "git", "pkg-config", "libyaml-dev"] + build_packages) | join(" ") }} \
+    && rm -rf /var/lib/apt/lists/*
+{% if gemspec %}
+# The Gemfile reads the gemspec, which needs the sources.
+COPY . .
+RUN {{ bundle_install | join(" \\\n    && ") }}
+{% else %}
+# Dependencies first: code changes don't reinstall them.
+COPY Gemfile {{ "Gemfile.lock " if lockfile }}{{ ".ruby-version " if ruby_version_file }}./
+RUN {{ bundle_install | join(" \\\n    && ") }}
+COPY . .
+{% endif %}
+{% for command in after_copy %}
+RUN {{ command }}
+{% endfor %}
+{% endblock %}
+
+{% block runtime %}
+FROM base
+{% block user %}
+# A numeric user: Kubernetes can then check it isn't root (runAsNonRoot).
+RUN groupadd --system --gid 10001 app && useradd --system --uid 10001 --gid app --no-create-home app
+COPY --from=build /usr/local/bundle /usr/local/bundle
+COPY --from=build --chown=app:app {{ workdir }} {{ workdir }}
+USER 10001:10001
+{% endblock %}
+EXPOSE {{ cfg.port }}
+CMD {{ cfg.command | exec_form }}
+{% endblock %}

@@ -1,0 +1,98 @@
+{% block deps %}
+FROM {{ build_image }} AS deps
+WORKDIR /app
+{% if setup %}
+RUN {{ setup }}
+{% endif %}
+# Dependencies first: code changes don't reinstall them.
+RUN --mount=type=cache,target={{ cache }} \
+{% for f in install_files + install_dirs %}
+    --mount=type=bind,source={{ f }},target={{ f }} \
+{% endfor %}
+    {{ install }}
+{% endblock %}
+
+{% block build %}
+FROM deps AS build
+COPY . .
+{% for key, value in build_env.items() %}
+ENV {{ key }}={{ value }}
+{% endfor %}
+{% if cfg.build_command %}
+RUN {{ cfg.build_command }}
+{% endif %}
+{% if not cfg.static and not cfg.output_dir and prune %}
+# Ship production dependencies only.
+RUN {{ prune }}
+{% endif %}
+{% endblock %}
+
+{% block runtime %}
+{% if cfg.static %}
+FROM nginxinc/nginx-unprivileged:1-alpine
+# Security fixes Alpine released since the base image was built.
+USER root
+RUN apk upgrade --no-cache
+USER 101
+{% if cfg.proxy %}
+# Filled in at startup with the API URLs from the environment.
+COPY <<"EOF" /etc/nginx/templates/default.conf.template
+{% else %}
+COPY <<"EOF" /etc/nginx/conf.d/default.conf
+{% endif %}
+server {
+    listen {{ cfg.port }};
+    root /usr/share/nginx/html;
+{% for path, variable in cfg.proxy.items() %}
+    location {{ path }} {
+        proxy_pass {{ "${" ~ variable ~ "}" }};
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+{% endfor %}
+    location / {
+        try_files $uri $uri/ {{ "/index.html" if spa else "$uri.html =404" }};
+    }
+{% if not spa %}
+    error_page 404 /404.html;
+{% endif %}
+}
+EOF
+{% if cfg.proxy %}
+# Without the API URLs, stop at startup with what to set.
+COPY --chmod=755 <<"EOF" /docker-entrypoint.d/05-quoll-proxy.sh
+#!/bin/sh
+{% for path, variable in cfg.proxy.items() %}
+: "{{ "${" ~ variable }}:?is the URL {{ path }} is forwarded to, e.g. http://api:3000 (no path)}"
+{% endfor %}
+EOF
+{% endif %}
+COPY --from=build /app/{{ cfg.output_dir }} /usr/share/nginx/html
+EXPOSE {{ cfg.port }}
+{% else %}
+FROM {{ runtime_image }}
+{{ os_updates }}
+{% if user == "node" and "npm" not in cfg.command and "npx" not in cfg.command %}
+# npm and corepack built the app; the container only runs it (and they carry their own vulnerabilities).
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
+{% endif %}
+ENV {% for key, value in env.items() %}{{ key }}={{ value }}{{ " \\\n    " if not loop.last }}{% endfor %}
+
+WORKDIR /app
+{% block app_files %}
+{% if cfg.output_dir %}
+# The build output is self-contained.
+COPY --from=build --chown={{ user }}:{{ user }} /app/{{ cfg.output_dir }} ./{{ cfg.output_dir }}
+{% else %}
+ENV PATH="/app/node_modules/.bin:$PATH"
+COPY --from=build --chown={{ user }}:{{ user }} /app ./
+{% endif %}
+{% endblock %}
+# Numeric: Kubernetes can then check it isn't root (runAsNonRoot).
+USER {{ uid }}
+EXPOSE {{ cfg.port }}
+CMD {{ cfg.command | exec_form }}
+{% endif %}
+{% endblock %}

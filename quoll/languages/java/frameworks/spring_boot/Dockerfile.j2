@@ -1,0 +1,18 @@
+{% extends "java/Dockerfile.j2" %}
+
+{% block runtime %}
+# Split the jar into layers (Spring Boot 3.3+): dependencies change less often than the code.
+FROM eclipse-temurin:{{ cfg.version }}-jre AS layers
+WORKDIR /layers
+COPY --from=build /out/app.jar app.jar
+RUN java -Djarmode=tools -jar app.jar extract --layers --launcher --destination extracted
+
+{{ super() }}
+{%- endblock %}
+
+{% block app_files %}
+COPY --from=layers /layers/extracted/dependencies/ ./
+COPY --from=layers /layers/extracted/spring-boot-loader/ ./
+COPY --from=layers /layers/extracted/snapshot-dependencies/ ./
+COPY --from=layers /layers/extracted/application/ ./
+{% endblock %}
