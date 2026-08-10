@@ -1,0 +1,37 @@
+{% block build %}
+FROM gcc:{{ gcc_tag }} AS build
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update \
+    && apt-get install -y --no-install-recommends {{ packages }}
+WORKDIR /src
+COPY . .
+{% if conan %}
+# Conan resolves the dependencies; its toolchain file points CMake at them.
+RUN --mount=type=cache,target=/root/.conan2 \
+    pipx run conan profile detect --exist-ok \
+    && pipx run conan install . --output-folder=build --build=missing -s build_type=Release
+ENV CMAKE_TOOLCHAIN_FILE=/src/build/conan_toolchain.cmake
+{% endif %}
+{% if vcpkg %}
+RUN git clone --depth 1 https://github.com/microsoft/vcpkg /opt/vcpkg \
+    && /opt/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+ENV VCPKG_ROOT=/opt/vcpkg \
+    CMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake
+{% endif %}
+# libstdc++ and libgcc linked statically: the runtime image only needs glibc.
+ENV LDFLAGS="-static-libstdc++ -static-libgcc"
+RUN {% if vcpkg %}--mount=type=cache,target=/root/.cache/vcpkg {% endif %}{{ cfg.build_command }} \
+    && mkdir -p /out \
+    && cp "$(find build -type f -name '{{ target }}' -perm -u+x | head -n 1)" /out/app
+{% endblock %}
+
+{% block runtime %}
+# distroless/cc: glibc only, no shell, no package manager, non-root.
+FROM gcr.io/distroless/cc-debian13:nonroot
+COPY --from=build /out/app /app
+# distroless' nonroot, numeric: Kubernetes can then check it isn't root (runAsNonRoot).
+USER 65532:65532
+EXPOSE {{ cfg.port }}
+CMD {{ cfg.command | exec_form }}
+{% endblock %}
