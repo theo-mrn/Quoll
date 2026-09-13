@@ -1,0 +1,5 @@
+# Written by quoll: their format is quoll's.
+compose.yaml
+.github/
+.gitlab-ci.yml
+.gitlab/
