@@ -1,0 +1,48 @@
+[project]
+stack = "python"
+framework = ""
+package_manager = "pip"
+package_manager_version = ""
+
+[ci]
+versions = [
+    "3.9",
+    "3.10",
+    "3.11",
+    "3.12",
+    "3.13",
+    "3.14",
+]
+version_file = ""
+install = "python -m pip install --upgrade pip\npip install -e \".[dev]\""
+cache = true
+source_dir = "quoll"
+branches = [
+    "main",
+]
+dependency_updates = true
+
+[ci.lint]
+enabled = true
+tools = [
+    "ruff",
+]
+
+[ci.test]
+enabled = true
+runner = "pytest"
+coverage = true
+coverage_threshold = 75
+codecov = false
+env_secrets = []
+
+[ci.security]
+audit = true
+sonar = false
+sonar_organization = ""
+sonar_project_key = ""
+
+[ci.build]
+enabled = true
+command = "pip install build\npython -m build"
+docker = false
