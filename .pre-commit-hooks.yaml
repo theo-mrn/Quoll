@@ -1,0 +1,23 @@
+# pre-commit hooks (https://pre-commit.com): regenerate quoll's files when a quoll.toml changes. A hook that
+# changes a file stops the commit: review the change, `git add` it, commit again.
+- id: quoll-ci
+  name: quoll ci update
+  description: Regenerate the CI pipeline from quoll.toml.
+  entry: quoll ci update --yes
+  language: python
+  files: (^|/)quoll\.toml$
+  pass_filenames: false
+- id: quoll-docker
+  name: quoll docker update
+  description: Regenerate the Dockerfiles and compose.yaml from quoll.toml.
+  entry: quoll docker update --yes
+  language: python
+  files: (^|/)quoll\.toml$
+  pass_filenames: false
+- id: quoll-cd
+  name: quoll cd update
+  description: Regenerate the delivery from quoll.toml.
+  entry: quoll cd update --yes
+  language: python
+  files: (^|/)quoll\.toml$
+  pass_filenames: false
