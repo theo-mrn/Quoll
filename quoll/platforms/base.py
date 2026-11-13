@@ -61,7 +61,7 @@ class PlatformAPI(ABC):
 
     @abstractmethod
     def protect_branch(
-        self, repo: str, branch: str, required_checks: Sequence[str] = (), required_reviews: int = 1
+        self, repo: str, branch: str, required_checks: Sequence[str] = (), required_reviews: int = 0
     ) -> List[str]:
         """Forbid direct pushes and require a green pipeline (and reviews) to merge. Returns warnings."""
 

@@ -56,17 +56,15 @@ class GitHubAPI(PlatformAPI):
                     f"/repos/{repo}/actions/secrets/{name}",
                     json={"encrypted_value": _encrypt_secret(public_key, value), "key_id": key_id},
                 )
-                _raise_for_status(response, f"enregistrer le secret {name}")
+                _raise_for_status(response, f"save the secret {name}")
 
     def protect_branch(
-        self, repo: str, branch: str, required_checks: Sequence[str] = (), required_reviews: int = 1
+        self, repo: str, branch: str, required_checks: Sequence[str] = (), required_reviews: int = 0
     ) -> List[str]:
         repo = self._full_path(repo)
-        reviews = (
-            {"required_approving_review_count": required_reviews, "dismiss_stale_reviews": True}
-            if required_reviews
-            else None
-        )
+        # Changes go through a pull request; approvals are on top (GitHub doesn't let authors approve their own:
+        # one required approval would lock a project with a single developer out of its default branch).
+        reviews = {"required_approving_review_count": required_reviews, "dismiss_stale_reviews": True}
         with github_client() as client:
             response = client.put(
                 f"/repos/{repo}/branches/{branch}/protection",
@@ -81,7 +79,7 @@ class GitHubAPI(PlatformAPI):
                 },
             )
             if response.is_error:
-                raise GitHubError(f"GitHub {response.status_code} en appliquant les branch protection rules.")
+                raise GitHubError(f"GitHub {response.status_code} while protecting the branch {branch}.")
         return []
 
     def _full_path(self, repo: str) -> str:
