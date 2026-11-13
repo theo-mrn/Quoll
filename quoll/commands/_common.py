@@ -39,11 +39,12 @@ def check_platform(name: Optional[str]) -> None:
 
 
 def ensure_token(platform: str, host: Optional[str] = None) -> bool:
-    """A token for `platform` in settings: from the environment, ~/.config/quoll, the platform's CLI, or asked."""
+    """A token for `platform` in settings: from the environment, the platform's CLI (gh, glab: the session the user
+    keeps fresh), the one stored in ~/.config/quoll, or asked."""
     attr = f"{platform}_token"
     if getattr(settings, attr):
         return True
-    token = load_stored_token(platform) or _cli_token(platform, host)
+    token = _cli_token(platform, host) or load_stored_token(platform)
     if not token:
         label = platforms.get(platform).label
         scope = "repo" if platform == "github" else "api"

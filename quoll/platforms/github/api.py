@@ -12,9 +12,9 @@ from quoll.platforms.base import PlatformAPI, PlatformError, Repo
 GITHUB_API = "https://api.github.com"
 
 _ERROR_HINTS = {
-    401: "Token invalide ou expiré.",
-    403: "Token insuffisant — vérifie que le scope 'repo' est activé sur ton token GitHub.",
-    422: "Le repo existe peut-être déjà sur GitHub.",
+    401: "The token is invalid or expired (QUOLL_GITHUB_TOKEN, `gh auth login`, or ~/.config/quoll/config.toml).",
+    403: "The token lacks permissions: it needs the 'repo' scope.",
+    422: "The repository may already exist on GitHub.",
 }
 
 
@@ -42,7 +42,7 @@ class GitHubAPI(PlatformAPI):
                 endpoint,
                 json={"name": name, "private": private, "auto_init": False, "description": "Scaffolded by quoll"},
             )
-            _raise_for_status(response, "créer le repo")
+            _raise_for_status(response, "create the repository")
             data = response.json()
             return Repo(path=data.get("full_name", name), clone_url=data["clone_url"], web_url=data.get("html_url", ""))
 
@@ -56,17 +56,15 @@ class GitHubAPI(PlatformAPI):
                     f"/repos/{repo}/actions/secrets/{name}",
                     json={"encrypted_value": _encrypt_secret(public_key, value), "key_id": key_id},
                 )
-                _raise_for_status(response, f"enregistrer le secret {name}")
+                _raise_for_status(response, f"save the secret {name}")
 
     def protect_branch(
-        self, repo: str, branch: str, required_checks: Sequence[str] = (), required_reviews: int = 1
+        self, repo: str, branch: str, required_checks: Sequence[str] = (), required_reviews: int = 0
     ) -> List[str]:
         repo = self._full_path(repo)
-        reviews = (
-            {"required_approving_review_count": required_reviews, "dismiss_stale_reviews": True}
-            if required_reviews
-            else None
-        )
+        # Changes go through a pull request; approvals are on top (GitHub doesn't let authors approve their own:
+        # one required approval would lock a project with a single developer out of its default branch).
+        reviews = {"required_approving_review_count": required_reviews, "dismiss_stale_reviews": True}
         with github_client() as client:
             response = client.put(
                 f"/repos/{repo}/branches/{branch}/protection",
@@ -81,7 +79,7 @@ class GitHubAPI(PlatformAPI):
                 },
             )
             if response.is_error:
-                raise GitHubError(f"GitHub {response.status_code} en appliquant les branch protection rules.")
+                raise GitHubError(f"GitHub {response.status_code} while protecting the branch {branch}.")
         return []
 
     def _full_path(self, repo: str) -> str:
@@ -95,13 +93,13 @@ def _authenticated_user() -> str:
     with github_client() as client:
         response = client.get("/user")
         if response.is_error:
-            raise GitHubError(f"GitHub {response.status_code} — impossible de récupérer l'utilisateur.")
+            raise GitHubError(f"GitHub {response.status_code} while reading the authenticated user.")
         return response.json()["login"]
 
 
 def _repo_public_key(client: httpx.Client, repo: str) -> Tuple[str, str]:
     response = client.get(f"/repos/{repo}/actions/secrets/public-key")
-    _raise_for_status(response, "récupérer la clé publique des secrets")
+    _raise_for_status(response, "read the secrets' public key")
     data = response.json()
     return data["key_id"], data["key"]
 
@@ -120,7 +118,7 @@ def _encrypt_secret(public_key_b64: str, secret_value: str) -> str:
 def _raise_for_status(response: httpx.Response, action: str) -> None:
     if response.is_error:
         hint = _ERROR_HINTS.get(response.status_code, "")
-        msg = f"GitHub {response.status_code} en essayant de {action}."
+        msg = f"GitHub {response.status_code} while trying to {action}."
         if hint:
             msg += f" {hint}"
         raise GitHubError(msg)

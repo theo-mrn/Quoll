@@ -50,6 +50,7 @@ esac"""
 _SUMMARY = """{
   echo "### Published"
   echo
+  # shellcheck disable=SC2016 # Markdown's backquotes
   echo "$TAGS" | sed 's/^/- `/; s/$/`/'
 } >> "$GITHUB_STEP_SUMMARY\""""
 
@@ -242,7 +243,11 @@ def _registry_name(image: str) -> str:
 
 
 # The environment's kubeconfig, from its secret, for helm.
-_KUBECONFIG = """export KUBECONFIG="$RUNNER_TEMP/kubeconfig"
+_KUBECONFIG = """if [ -z "$KUBECONFIG_DATA" ]; then
+  echo "::error::No KUBECONFIG secret in this GitHub environment: add the cluster's kubeconfig to it."
+  exit 1
+fi
+export KUBECONFIG="$RUNNER_TEMP/kubeconfig"
 printf '%s' "$KUBECONFIG_DATA" > "$KUBECONFIG"
 chmod 600 "$KUBECONFIG\""""
 

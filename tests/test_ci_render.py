@@ -142,3 +142,30 @@ def test_plan_detects_hand_written_workflow(make_project) -> None:
     workflow = render.plan(root, default_config(detect(root)))[0]
     assert workflow.changed and not workflow.managed
     assert workflow.diff().startswith("--- a/.github/workflows/ci.yml")
+
+
+@pytest.mark.parametrize("name", list(ALL_PROJECTS))
+def test_no_expression_in_scripts(make_project, name) -> None:
+    """No ${{ }} pasted into a script (Semgrep's run-shell-injection): values go through the environment."""
+    import re
+
+    from quoll.platforms.github.ci import render_setup_action
+
+    cfg = config(make_project, ALL_PROJECTS[name])
+    cfg.build.docker = True
+    for text in (render.render_workflow(cfg), render_setup_action(cfg)):
+        doc = yaml.safe_load(text)
+        steps = [s for job in (doc.get("jobs") or {}).values() for s in job.get("steps", [])]
+        steps += (doc.get("runs") or {}).get("steps", [])
+        for step in steps:
+            assert not re.search(r"\$\{\{", step.get("run") or ""), step["run"]
+
+
+def test_dependabot_leaves_runtime_majors_to_quoll(make_project) -> None:
+    """A base image's major is quoll.toml's ([docker] version), and Node's types follow the runtime's."""
+    cfg = config(make_project, NODE_PNPM)
+    doc = yaml.safe_load(render.render_dependabot(cfg, ["."]))
+    npm, docker = (next(u for u in doc["updates"] if u["package-ecosystem"] == e) for e in ("npm", "docker"))
+    major = ["version-update:semver-major"]
+    assert npm["ignore"] == [{"dependency-name": "@types/node", "update-types": major}]
+    assert docker["ignore"] == [{"dependency-name": "*", "update-types": major}]

@@ -117,6 +117,7 @@ def test_workspace_deploys_every_project(make_project, tmp_path, remote) -> None
         assert "helm upgrade --install backend chart -f chart/values-staging.yaml" in deploy["run"]
         assert "--namespace project-staging --create-namespace" in deploy["run"]
         assert deploy["env"]["KUBECONFIG_DATA"] == "${{ secrets.KUBECONFIG }}"
+        assert deploy["run"].index("No KUBECONFIG secret") < deploy["run"].index("helm upgrade")
         actionlint(tmp_path, text)
         ci = load((root / ".github/workflows/ci.yml").read_text())["jobs"]
         assert {"backend-chart", "frontend-chart"} <= set(ci)
@@ -133,6 +134,7 @@ def test_workspace_deploys_every_project(make_project, tmp_path, remote) -> None
         assert staging["environment"] == {"name": "staging", "action": "start"}
         script = "\n".join(staging["script"])
         assert script.index("cosign verify") < script.index("helm upgrade --install backend")
+        assert script.index('[ -n "${KUBECONFIG:-}" ]') < script.index("helm upgrade --install backend")
         gitlab_lint(tmp_path, text, "cd.yml")
         root_pipeline = (root / ".gitlab-ci.yml").read_text()
         assert yaml.safe_load(root_pipeline)["stages"] == ["test", "publish", "deploy"]

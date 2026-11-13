@@ -54,7 +54,7 @@ def test_github_create_repo_org(settings) -> None:
 @respx.mock
 def test_github_create_repo_error_explains(settings) -> None:
     respx.post(f"{GITHUB_API}/user/repos").mock(return_value=httpx.Response(422))
-    with pytest.raises(PlatformError, match="existe peut-être déjà"):
+    with pytest.raises(PlatformError, match="may already exist"):
         GitHubAPI().create_repo("app")
 
 
@@ -66,6 +66,10 @@ def test_github_protect_branch(settings) -> None:
     assert GitHubAPI().protect_branch("my-org/app", "main", required_checks=["CI result"]) == []
     body = json.loads(route.calls[0].request.content)
     assert body["required_status_checks"]["contexts"] == ["CI result"]
+    # Pull requests only, merged once the CI passed; no required approval by default: a single developer can't
+    # approve their own pull requests.
+    assert body["required_pull_request_reviews"]["required_approving_review_count"] == 0
+    assert body["enforce_admins"] is True and body["allow_force_pushes"] is False
 
 
 @respx.mock
@@ -153,7 +157,7 @@ def test_gitlab_protect_branch(settings) -> None:
     settings_route = respx.put(project).mock(return_value=httpx.Response(200, json={}))
     respx.post(f"{project}/approval_rules").mock(return_value=httpx.Response(403, json={}))
 
-    warnings = GitLabAPI().protect_branch("acme/app", "main")
+    warnings = GitLabAPI().protect_branch("acme/app", "main", required_reviews=1)
 
     assert json.loads(protect.calls[0].request.content)["push_access_level"] == 0
     assert json.loads(settings_route.calls[0].request.content)["only_allow_merge_if_pipeline_succeeds"] is True
@@ -164,5 +168,5 @@ def test_gitlab_protect_branch(settings) -> None:
 @respx.mock
 def test_gitlab_error_explains(settings) -> None:
     respx.post(f"{GITLAB_API}/projects").mock(return_value=httpx.Response(403))
-    with pytest.raises(PlatformError, match="scope 'api'"):
+    with pytest.raises(PlatformError, match="the 'api' scope"):
         GitLabAPI().create_repo("app")

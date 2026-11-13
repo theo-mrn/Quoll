@@ -171,6 +171,9 @@ def _deploy(delivery: Delivery, environment: str, settings: Environment) -> Dict
             f'cosign verify "${IMAGE}@${DIGEST}" --certificate-identity-regexp "^$CI_SERVER_URL/$CI_PROJECT_PATH//" '
             '--certificate-oidc-issuer "$CI_SERVER_URL" > /dev/null',
         ]
+    # Without one, helm would try a cluster on localhost.
+    script.append(f'[ -n "${{KUBECONFIG:-}}" ] || {{ echo "No KUBECONFIG file variable for the {environment} '
+                  'environment: add the cluster\'s kubeconfig (CI/CD variable, type File)."; exit 1; }')
     script.append(helm_upgrade(k8s, environment, settings))
     target: Dict[str, Any] = {"name": environment, "action": "start"}
     address = url(settings, k8s.tls)
