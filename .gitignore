@@ -10,3 +10,6 @@ coverage.xml
 dist/
 *.egg-info/
 .env
+
+# Local tools output
+.playwright-mcp/
