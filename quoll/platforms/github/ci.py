@@ -168,7 +168,8 @@ def _project_jobs(member: Member, repo: Repo) -> Dict[str, Any]:
         add("test", label, 20, steps, **options)
 
     if cfg.security.audit:
-        setup = ci.setup(cfg, default_version) if ci.audit_needs_setup else []
+        audited = cfg if ci.audit_uses_cache else cfg.model_copy(update={"cache": False})
+        setup = ci.setup(audited, default_version) if ci.audit_needs_setup else []
         add("audit", "Dependency audit", 10, [checkout(), *setup, *custom.extend(cfg, "audit", ci.audit(cfg))])
 
     if not repo.workspace and repo.secrets:
@@ -248,7 +249,8 @@ def _project_jobs(member: Member, repo: Repo) -> Dict[str, Any]:
 
     if cfg.build.docker:
         tag = f"{member.name or 'ci'}:${{{{ github.sha }}}}"
-        lint_image, build, scan = image_checks(tag)
+        # Scripts read the commit from the environment, not from an expression pasted into them.
+        lint_image, build, scan = image_checks(f"{member.name or 'ci'}:$GITHUB_SHA")
         build = step(
             build.name,
             uses=ACTIONS["build-push"],

@@ -164,3 +164,12 @@ def test_angular_vitest_runner(make_project) -> None:
 def test_nestjs(make_project) -> None:
     det = detect(make_project(NESTJS))
     assert (det.framework, det.test_runner) == ("nestjs", "jest")
+
+
+def test_prettier_leaves_quoll_files_alone() -> None:
+    """quoll's files keep quoll's format; a chart's templates aren't YAML a formatter can read."""
+    from quoll.languages.node.ci import _LINT
+
+    command = _LINT["prettier"][1]
+    for excluded in ("'!compose.yaml'", "'!.github/**'", "'!chart/**'"):
+        assert excluded in command
