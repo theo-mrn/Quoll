@@ -20,7 +20,8 @@ _LINT = {
 }
 
 # PHPUnit has no CLI threshold: read the line rate from its Clover report.
-_CLOVER_CHECK = """php -r '
+_CLOVER_CHECK = """# shellcheck disable=SC2016 # PHP code: its $ are PHP's
+php -r '
 $m = simplexml_load_file("coverage.xml")->project->metrics;
 $pct = (int) $m["statements"] ? 100 * (int) $m["coveredstatements"] / (int) $m["statements"] : 100;
 $summary = getenv("GITHUB_STEP_SUMMARY");

@@ -55,7 +55,7 @@ def detect(project: Project) -> Detection:
         [gem for gems in _SERVICE_GEMS.values() for gem in gems if has_gem(project, gem)], _SERVICE_GEMS
     )
     if project.glob_any("*.gemspec"):
-        det.build_command = "gem build *.gemspec"
+        det.build_command = "gem build ./*.gemspec"
     return det
 
 

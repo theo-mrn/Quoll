@@ -50,6 +50,7 @@ esac"""
 _SUMMARY = """{
   echo "### Published"
   echo
+  # shellcheck disable=SC2016 # Markdown's backquotes
   echo "$TAGS" | sed 's/^/- `/; s/$/`/'
 } >> "$GITHUB_STEP_SUMMARY\""""
 

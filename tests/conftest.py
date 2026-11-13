@@ -1,10 +1,18 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Callable, Dict
 
 import pytest
+
+# Output as on a wide, plain terminal wherever the tests run: CI runners wrap lines elsewhere, and Typer colors its
+# help on GitHub Actions.
+os.environ["COLUMNS"] = "250"
+os.environ["NO_COLOR"] = "1"
+os.environ["_TYPER_FORCE_DISABLE_TERMINAL"] = "1"
+os.environ.pop("FORCE_COLOR", None)
 
 ProjectFactory = Callable[[Dict[str, str]], Path]
 
