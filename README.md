@@ -5,8 +5,11 @@ A CLI that gives any Python, Node, Go, Rust, Java/Kotlin, PHP, Ruby, .NET or C/C
 ## Install
 
 ```bash
-pip install quoll-cli
+pipx install quoll-cli        # or: uv tool install quoll-cli, pip install quoll-cli
+quoll --version
 ```
+
+Python 3.9 or later. Docker is needed for the images, Helm for the charts (only to install them yourself).
 
 ## CI
 

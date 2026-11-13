@@ -1,3 +1,5 @@
+from importlib.metadata import version
+
 import typer
 
 from quoll.commands import add, cd, ci, docker, k8s, remove
@@ -7,9 +9,22 @@ from quoll.console import console
 
 app = typer.Typer(
     name="quoll",
-    help="Scaffold new projects and maintain their CI, Docker image and delivery with company standards.",
+    help="Production-grade CI, Dockerfiles, Helm charts and delivery for any repository, kept in sync with quoll.toml.",
     no_args_is_help=True,
 )
+
+
+def _version(value: bool) -> None:
+    if value:
+        console.print(f"quoll {version('quoll-cli')}")
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    _: bool = typer.Option(False, "--version", callback=_version, is_eager=True, help="Show quoll's version."),
+) -> None:
+    """Production-grade CI, Dockerfiles, Helm charts and delivery for any repository, kept in sync with quoll.toml."""
 
 app.command("new")(new)
 app.add_typer(add.app, name="add")

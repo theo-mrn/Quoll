@@ -270,3 +270,10 @@ def test_token_prefers_the_platform_cli_session(monkeypatch) -> None:
     monkeypatch.setattr(settings, "github_token", "")
     monkeypatch.setattr(_common, "_cli_token", lambda platform, host: "")
     assert _common.ensure_token("github") and settings.github_token == "stored"
+
+
+def test_version() -> None:
+    from importlib.metadata import version
+
+    result = _quoll("--version")
+    assert result.exit_code == 0 and result.output.strip() == f"quoll {version('quoll-cli')}"
