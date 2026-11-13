@@ -152,7 +152,7 @@ class _FakeAPI:
     def __init__(self, calls: dict) -> None:
         self.calls = calls
 
-    def protect_branch(self, repo, branch, required_checks=(), required_reviews=1):
+    def protect_branch(self, repo, branch, required_checks=(), required_reviews=0):
         self.calls["protect"] = (repo, branch, tuple(required_checks))
         return []
 

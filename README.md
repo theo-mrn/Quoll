@@ -75,7 +75,7 @@ It then asks only what it can't infer (coverage threshold, version matrix, Codec
 
 At the end of `init`, quoll can also, through the platform's API:
 
-- protect the default branch: on GitHub the **`CI result`** check must pass before merging; on GitLab no one can push directly, merge requests need a green pipeline ("Pipelines must succeed") and fast-forward merges, plus an approval rule on GitLab Premium;
+- protect the default branch: changes go through pull / merge requests, merged once the pipeline passed — on GitHub the **`CI result`** check (admins included, linear history, no force push); on GitLab no direct push, "Pipelines must succeed" and fast-forward merges. No approval is required by default (authors can't approve their own changes: a single developer would be locked out); a team adds it in the repository's settings;
 - store what the pipeline needs (`.env.example` variables used by tests, `SONAR_TOKEN`, `CODECOV_TOKEN`) as GitHub secrets or masked GitLab CI/CD variables.
 
 Tokens come from `QUOLL_GITHUB_TOKEN` / `QUOLL_GITLAB_TOKEN`, `gh auth token` / `glab`, or are asked once and stored in `~/.config/quoll/config.toml`. Self-managed GitLab instances are reached on the remote's host (`QUOLL_GITLAB_URL` for `quoll new --remote`, `QUOLL_GITLAB_GROUP` for the group of new projects).

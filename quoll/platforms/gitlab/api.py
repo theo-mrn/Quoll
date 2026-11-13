@@ -49,7 +49,7 @@ class GitLabAPI(PlatformAPI):
             }
             if settings.gitlab_group:
                 response = client.get(f"/groups/{_id(settings.gitlab_group)}")
-                _raise_for_status(response, f"trouver le groupe {settings.gitlab_group}")
+                _raise_for_status(response, f"find the group {settings.gitlab_group}")
                 payload["namespace_id"] = response.json()["id"]
             response = client.post("/projects", json=payload)
             _raise_for_status(response, "create the project")
@@ -67,7 +67,7 @@ class GitLabAPI(PlatformAPI):
                 response = client.put(f"/projects/{_id(repo)}/variables/{key}", json=payload)
                 if response.status_code == 404:
                     response = client.post(f"/projects/{_id(repo)}/variables", json=payload)
-                _raise_for_status(response, f"enregistrer la variable {key}")
+                _raise_for_status(response, f"save the variable {key}")
 
     def ensure_schedule(self, repo: str, branch: str, cron: str) -> bool:
         """The pipeline schedule quoll owns (found by its description), created or updated."""
@@ -87,7 +87,7 @@ class GitLabAPI(PlatformAPI):
         return True
 
     def protect_branch(
-        self, repo: str, branch: str, required_checks: Sequence[str] = (), required_reviews: int = 1
+        self, repo: str, branch: str, required_checks: Sequence[str] = (), required_reviews: int = 0
     ) -> List[str]:
         """No direct pushes, merge requests only once the pipeline passed, linear history."""
         repo = self._full_path(repo)
