@@ -255,3 +255,18 @@ def test_pre_commit_hooks_run_real_commands() -> None:
         assert program == "quoll" and hook["files"] == r"(^|/)quoll\.toml$" and not hook["pass_filenames"]
         result = _quoll(*args, "--help")
         assert result.exit_code == 0 and "--yes" in result.output
+
+
+def test_token_prefers_the_platform_cli_session(monkeypatch) -> None:
+    """gh / glab's session (kept fresh by the user) comes before a token stored long ago, which may have expired."""
+    from quoll.commands import _common
+    from quoll.config.settings import settings
+
+    monkeypatch.setattr(settings, "github_token", "")
+    monkeypatch.setattr(_common, "_cli_token", lambda platform, host: "from-gh")
+    monkeypatch.setattr(_common, "load_stored_token", lambda platform: "stored")
+    assert _common.ensure_token("github") and settings.github_token == "from-gh"
+
+    monkeypatch.setattr(settings, "github_token", "")
+    monkeypatch.setattr(_common, "_cli_token", lambda platform, host: "")
+    assert _common.ensure_token("github") and settings.github_token == "stored"

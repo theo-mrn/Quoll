@@ -11,9 +11,9 @@ from quoll.config.settings import settings
 from quoll.platforms.base import PlatformAPI, PlatformError, Repo
 
 _ERROR_HINTS = {
-    401: "Token invalide ou expiré.",
-    403: "Token insuffisant — il faut le scope 'api' et le rôle Maintainer sur le projet.",
-    404: "Projet ou groupe introuvable (ou invisible pour ce token).",
+    401: "The token is invalid or expired (QUOLL_GITLAB_TOKEN, `glab auth login`, or ~/.config/quoll/config.toml).",
+    403: "The token lacks permissions: it needs the 'api' scope and the Maintainer role on the project.",
+    404: "Project or group not found (or not visible to this token).",
 }
 # Identifies the pipeline schedule quoll manages among the project's others.
 SCHEDULE_DESCRIPTION = "quoll: security scans"
@@ -52,7 +52,7 @@ class GitLabAPI(PlatformAPI):
                 _raise_for_status(response, f"trouver le groupe {settings.gitlab_group}")
                 payload["namespace_id"] = response.json()["id"]
             response = client.post("/projects", json=payload)
-            _raise_for_status(response, "créer le projet")
+            _raise_for_status(response, "create the project")
             data = response.json()
             return Repo(
                 path=data["path_with_namespace"], clone_url=data["http_url_to_repo"], web_url=data["web_url"]
@@ -77,13 +77,13 @@ class GitLabAPI(PlatformAPI):
         schedules = f"/projects/{_id(repo)}/pipeline_schedules"
         with gitlab_client(self.base_url) as client:
             response = client.get(schedules, params={"per_page": 100})
-            _raise_for_status(response, "lister les pipeline schedules")
+            _raise_for_status(response, "list the pipeline schedules")
             existing = next((s for s in response.json() if s.get("description") == SCHEDULE_DESCRIPTION), None)
             if existing:
                 response = client.put(f"{schedules}/{existing['id']}", json=payload)
             else:
                 response = client.post(schedules, json=payload)
-            _raise_for_status(response, "enregistrer le pipeline schedule")
+            _raise_for_status(response, "save the pipeline schedule")
         return True
 
     def protect_branch(
@@ -105,7 +105,7 @@ class GitLabAPI(PlatformAPI):
                     "allow_force_push": False,
                 },
             )
-            _raise_for_status(response, f"protéger la branche {branch}")
+            _raise_for_status(response, f"protect the branch {branch}")
             response = client.put(
                 project,
                 json={
@@ -114,7 +114,7 @@ class GitLabAPI(PlatformAPI):
                     "merge_method": "ff",
                 },
             )
-            _raise_for_status(response, "exiger un pipeline vert avant le merge")
+            _raise_for_status(response, "require a successful pipeline to merge")
             if required_reviews:
                 # Approval rules are a GitLab Premium feature.
                 response = client.post(
@@ -123,8 +123,7 @@ class GitLabAPI(PlatformAPI):
                 )
                 if response.is_error:
                     warnings.append(
-                        f"approbations obligatoires non configurées (GitLab {response.status_code}) — "
-                        "elles nécessitent GitLab Premium"
+                        f"required approvals not set (GitLab {response.status_code}): they need GitLab Premium"
                     )
         return warnings
 
@@ -136,7 +135,7 @@ class GitLabAPI(PlatformAPI):
             return f"{settings.gitlab_group}/{repo}"
         with gitlab_client(self.base_url) as client:
             response = client.get("/user")
-            _raise_for_status(response, "récupérer l'utilisateur")
+            _raise_for_status(response, "read the authenticated user")
             return f"{response.json()['username']}/{repo}"
 
 
@@ -153,7 +152,7 @@ def _maskable(value: str) -> bool:
 def _raise_for_status(response: httpx.Response, action: str) -> None:
     if response.is_error:
         hint = _ERROR_HINTS.get(response.status_code, "")
-        msg = f"GitLab {response.status_code} en essayant de {action}."
+        msg = f"GitLab {response.status_code} while trying to {action}."
         if hint:
             msg += f" {hint}"
         raise GitLabError(msg)

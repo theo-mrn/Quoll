@@ -54,7 +54,7 @@ def test_github_create_repo_org(settings) -> None:
 @respx.mock
 def test_github_create_repo_error_explains(settings) -> None:
     respx.post(f"{GITHUB_API}/user/repos").mock(return_value=httpx.Response(422))
-    with pytest.raises(PlatformError, match="existe peut-être déjà"):
+    with pytest.raises(PlatformError, match="may already exist"):
         GitHubAPI().create_repo("app")
 
 
@@ -164,5 +164,5 @@ def test_gitlab_protect_branch(settings) -> None:
 @respx.mock
 def test_gitlab_error_explains(settings) -> None:
     respx.post(f"{GITLAB_API}/projects").mock(return_value=httpx.Response(403))
-    with pytest.raises(PlatformError, match="scope 'api'"):
+    with pytest.raises(PlatformError, match="the 'api' scope"):
         GitLabAPI().create_repo("app")

@@ -207,7 +207,7 @@ def test_schedule_command(make_project, monkeypatch) -> None:
     assert "in the pipeline itself" in runner.invoke(app, ["ci", "schedule", "-d", str(root)]).output
 
     root = make_project({**GO, "quoll.toml": ""})
-    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=root, check=True)
     subprocess.run(["git", "remote", "add", "origin", "git@gitlab.com:acme/api.git"], cwd=root, check=True)
     assert runner.invoke(app, ["ci", "init", "-y", "--force", "-d", str(root)]).exit_code == 0
     monkeypatch.setattr(settings, "gitlab_token", "token")
