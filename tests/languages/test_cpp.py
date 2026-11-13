@@ -48,7 +48,10 @@ def test_github_workflow(make_project) -> None:
 def test_matrix_over_compilers(make_project) -> None:
     doc = workflow(make_project, CPP_CMAKE, versions=["gcc-14", "clang-18"])
     assert doc["jobs"]["test"]["strategy"]["matrix"] == {"compiler": ["gcc-14", "clang-18"]}
-    assert 'compiler="${{ matrix.compiler }}"' in steps(doc, "test")[1]["run"]
+    # Through the environment: an expression is never pasted into a script.
+    toolchain = steps(doc, "test")[1]
+    assert toolchain["env"] == {"QUOLL_COMPILER": "${{ matrix.compiler }}"}
+    assert 'compiler="$QUOLL_COMPILER"' in toolchain["run"] and "${{" not in toolchain["run"]
 
 
 def test_gitlab_pipeline(make_project) -> None:

@@ -3,3 +3,4 @@ compose.yaml
 .github/
 .gitlab-ci.yml
 .gitlab/
+chart/

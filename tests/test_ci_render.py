@@ -142,3 +142,20 @@ def test_plan_detects_hand_written_workflow(make_project) -> None:
     workflow = render.plan(root, default_config(detect(root)))[0]
     assert workflow.changed and not workflow.managed
     assert workflow.diff().startswith("--- a/.github/workflows/ci.yml")
+
+
+@pytest.mark.parametrize("name", list(ALL_PROJECTS))
+def test_no_expression_in_scripts(make_project, name) -> None:
+    """No ${{ }} pasted into a script (Semgrep's run-shell-injection): values go through the environment."""
+    import re
+
+    from quoll.platforms.github.ci import render_setup_action
+
+    cfg = config(make_project, ALL_PROJECTS[name])
+    cfg.build.docker = True
+    for text in (render.render_workflow(cfg), render_setup_action(cfg)):
+        doc = yaml.safe_load(text)
+        steps = [s for job in (doc.get("jobs") or {}).values() for s in job.get("steps", [])]
+        steps += (doc.get("runs") or {}).get("steps", [])
+        for step in steps:
+            assert not re.search(r"\$\{\{", step.get("run") or ""), step["run"]

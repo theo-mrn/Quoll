@@ -13,7 +13,8 @@ if TYPE_CHECKING:
 _EXEC = {"npm": "npx", "pnpm": "pnpm exec", "yarn": "yarn", "yarn-classic": "yarn", "bun": "bunx"}
 
 # Files (and directories) quoll writes in a Node project, kept out of its formatter (as in .prettierignore).
-QUOLL_FILES = ("compose.yaml", ".github/", ".gitlab-ci.yml", ".gitlab/")
+# The Helm chart's templates are YAML with Go templates in it: no YAML formatter can read them.
+QUOLL_FILES = ("compose.yaml", ".github/", ".gitlab-ci.yml", ".gitlab/", "chart/")
 _NOT_QUOLL_FILES = " ".join(f"'!{p}**'" if p.endswith("/") else f"'!{p}'" for p in QUOLL_FILES)
 
 # tool: (step name, command)
@@ -62,6 +63,8 @@ def run_script(package_manager: str, script: str) -> str:
 
 
 class NodeCI(CISteps):
+    # npm / pnpm / yarn / bun audit read the lockfile, installing nothing.
+    audit_uses_cache = False
     version_key = "node-version"
     codeql_language = "javascript-typescript"
 

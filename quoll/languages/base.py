@@ -89,6 +89,8 @@ class CISteps(ABC):
     version_key: str = ""
     # False when the audit action installs the toolchain itself (GitHub).
     audit_needs_setup: bool = True
+    # False when the audit only reads the lockfile: the toolchain's dependency cache would have nothing to save.
+    audit_uses_cache: bool = True
     # CodeQL language (https://codeql.github.com/docs/codeql-overview/supported-languages-and-frameworks/), empty
     # when CodeQL doesn't support it; "autobuild" when the code must be compiled to be analyzed.
     codeql_language: str = ""
