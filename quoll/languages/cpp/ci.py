@@ -26,6 +26,7 @@ case "$compiler" in
 esac
 sudo=""; [ "$(id -u)" -eq 0 ] || sudo=sudo
 $sudo apt-get update -qq
+# shellcheck disable=SC2086 # $packages lists several packages
 $sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \\
   $packages {tools}
 export CC="$cc" CXX="$cxx" GCOV="$gcov"

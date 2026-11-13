@@ -13,7 +13,7 @@ def test_gem(make_project) -> None:
     assert det.lint_tools == ["rubocop"]
     assert det.test_runner == "rspec"
     assert det.coverage is True  # simplecov
-    assert det.build_command == "gem build *.gemspec"
+    assert det.build_command == "gem build ./*.gemspec"
     doc = workflow(make_project, RUBY_GEM)
     # setup-ruby reads .ruby-version and runs bundle install itself.
     assert steps(doc, "test")[1]["with"] == {"bundler-cache": True}
