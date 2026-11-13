@@ -159,3 +159,13 @@ def test_no_expression_in_scripts(make_project, name) -> None:
         steps += (doc.get("runs") or {}).get("steps", [])
         for step in steps:
             assert not re.search(r"\$\{\{", step.get("run") or ""), step["run"]
+
+
+def test_dependabot_leaves_runtime_majors_to_quoll(make_project) -> None:
+    """A base image's major is quoll.toml's ([docker] version), and Node's types follow the runtime's."""
+    cfg = config(make_project, NODE_PNPM)
+    doc = yaml.safe_load(render.render_dependabot(cfg, ["."]))
+    npm, docker = (next(u for u in doc["updates"] if u["package-ecosystem"] == e) for e in ("npm", "docker"))
+    major = ["version-update:semver-major"]
+    assert npm["ignore"] == [{"dependency-name": "@types/node", "update-types": major}]
+    assert docker["ignore"] == [{"dependency-name": "*", "update-types": major}]
