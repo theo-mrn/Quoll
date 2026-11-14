@@ -82,6 +82,22 @@ class GitHubAPI(PlatformAPI):
                 raise GitHubError(f"GitHub {response.status_code} while protecting the branch {branch}.")
         return []
 
+    def allow_release_prs(self, repo: str) -> List[str]:
+        repo = self._full_path(repo)
+        with github_client() as client:
+            # The token stays read-only by default (workflows ask for what they need); it may open pull requests.
+            response = client.put(
+                f"/repos/{repo}/actions/permissions/workflow",
+                json={"default_workflow_permissions": "read", "can_approve_pull_request_reviews": True},
+            )
+        if response.is_error:
+            # An organization's policy may forbid it.
+            return [
+                f"GitHub {response.status_code} while letting Actions open pull requests: turn on Settings → Actions "
+                "→ General → Allow GitHub Actions to create and approve pull requests, for the release PR."
+            ]
+        return []
+
     def _full_path(self, repo: str) -> str:
         """owner/repo; a bare name belongs to the configured organization, or to the authenticated user."""
         if "/" in repo:

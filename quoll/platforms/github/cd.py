@@ -259,7 +259,17 @@ def workflow_path(name: str = "") -> Path:
 def plan(project_dir: Path, deliveries: Union[CDConfig, List[Delivery]]) -> List[PlannedFile]:
     if isinstance(deliveries, CDConfig):
         deliveries = [Delivery("", ".", deliveries)]
-    return [
+    files = [
         planned(project_dir, workflow_path(d.name), render_workflow(d.cfg, d.name, d.directory, d.k8s))
         for d in deliveries
     ]
+    if any(d.cfg.release_pr for d in deliveries):
+        from quoll.ci.detect import default_branch
+        from quoll.platforms.github import release
+
+        branches = next((d.cfg.branches for d in deliveries if d.cfg.branches), [])
+        branch = branches[0] if branches else default_branch(project_dir)
+        workflows = [workflow_path(d.name).name for d in deliveries]
+        workspace = any(d.name for d in deliveries)
+        files += release.plan(project_dir, branch, workflows, workspace)
+    return files

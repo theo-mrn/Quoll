@@ -73,6 +73,23 @@ def test_github_protect_branch(settings) -> None:
 
 
 @respx.mock
+def test_github_allow_release_prs(settings) -> None:
+    route = respx.put(f"{GITHUB_API}/repos/my-org/app/actions/permissions/workflow").mock(
+        return_value=httpx.Response(204)
+    )
+    assert GitHubAPI().allow_release_prs("my-org/app") == []
+    body = json.loads(route.calls[0].request.content)
+    assert body == {"default_workflow_permissions": "read", "can_approve_pull_request_reviews": True}
+
+
+@respx.mock
+def test_github_allow_release_prs_forbidden_by_the_organization(settings) -> None:
+    respx.put(f"{GITHUB_API}/repos/my-org/app/actions/permissions/workflow").mock(return_value=httpx.Response(409))
+    [warning] = GitHubAPI().allow_release_prs("my-org/app")
+    assert "Allow GitHub Actions to create and approve pull requests" in warning
+
+
+@respx.mock
 def test_github_bare_repo_name_belongs_to_the_user(settings) -> None:
     respx.get(f"{GITHUB_API}/user").mock(return_value=httpx.Response(200, json={"login": "theo"}))
     route = respx.put(f"{GITHUB_API}/repos/theo/app/branches/main/protection").mock(

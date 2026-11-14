@@ -13,8 +13,18 @@ if TYPE_CHECKING:
 _EXEC = {"npm": "npx", "pnpm": "pnpm exec", "yarn": "yarn", "yarn-classic": "yarn", "bun": "bunx"}
 
 # Files (and directories) quoll writes in a Node project, kept out of its formatter (as in .prettierignore).
-# The Helm chart's templates are YAML with Go templates in it: no YAML formatter can read them.
-QUOLL_FILES = ("compose.yaml", ".github/", ".gitlab-ci.yml", ".gitlab/", "chart/")
+# The Helm chart's templates are YAML with Go templates in it: no YAML formatter can read them. release-please
+# rewrites the changelog and its manifest in its own format at each release.
+QUOLL_FILES = (
+    "compose.yaml",
+    ".github/",
+    ".gitlab-ci.yml",
+    ".gitlab/",
+    "chart/",
+    "CHANGELOG.md",
+    "release-please-config.json",
+    ".release-please-manifest.json",
+)
 _NOT_QUOLL_FILES = " ".join(f"'!{p}**'" if p.endswith("/") else f"'!{p}'" for p in QUOLL_FILES)
 
 # tool: (step name, command)
