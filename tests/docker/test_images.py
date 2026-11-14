@@ -104,6 +104,23 @@ def test_vite_app_is_served_by_nginx(make_project) -> None:
     assert "COPY --from=build /app/dist /usr/share/nginx/html" in text
 
 
+@pytest.mark.parametrize(
+    "command, keeps",
+    [
+        ("node dist/server.js", False),
+        ("pnpm start", False),  # pnpm isn't in the runtime image either way
+        ("npm run migrate && node server.js", True),
+        ("npx prisma migrate deploy && node server.js", True),
+        ('concurrently "npm:serve-*"', True),
+        ("run-p serve worker", True),  # npm-run-all starts npm itself
+    ],
+)
+def test_npm_removed_unless_the_command_needs_it(make_project, command, keeps) -> None:
+    files = {"package.json": {"name": "api", "scripts": {"start": command}}, "package-lock.json": "{}"}
+    text = dockerfile(make_project, files)
+    assert ("/usr/local/bin/npm" not in text) == keeps
+
+
 def test_yarn_berry_keeps_its_config(make_project) -> None:
     text = dockerfile(make_project, NODE_YARN_BERRY)
     assert "RUN corepack enable" in text
