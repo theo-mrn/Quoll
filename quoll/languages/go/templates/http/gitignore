@@ -1,0 +1,5 @@
+/{{name}}
+*.test
+coverage.out
+junit.xml
+.env

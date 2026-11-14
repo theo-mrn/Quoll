@@ -140,20 +140,100 @@ def test_express_template(tmp_path) -> None:
 # --------------------------------------------------------------------------- the real starters
 
 
-@pytest.mark.skipif(os.environ.get("QUOLL_NEW_TESTS") != "run", reason="set QUOLL_NEW_TESTS=run (npm, network)")
-@pytest.mark.parametrize("front, back, node", [("angular", "express", ""), ("angular@20", "express@4", "22")])
-def test_real_starters(tmp_path, monkeypatch, front, back, node) -> None:
+# What a generated project must pass, by starter (the CI runs the same).
+_NODE_CHECKS = [["npm", "test"], ["npm", "run", "lint"], ["npm", "run", "build"], ["npx", "prettier", "--check", "."]]
+REAL_CHECKS = {
+    "angular": [["npm", "run", "build"], ["npx", "prettier", "--check", "."]],
+    "express": _NODE_CHECKS,
+    "react": _NODE_CHECKS,
+    "nextjs": _NODE_CHECKS,
+    "fastapi": [["uv", "run", "pytest"], ["uv", "run", "ruff", "check", "."],
+                ["uv", "run", "ruff", "format", "--check", "."]],
+    "go": [["go", "vet", "./..."], ["go", "test", "./..."]],
+}
+# The dev server's (or the app's) forwarding of /api to the back-end, by front-end.
+DEV_PROXY = {"angular": "proxy.conf.json", "react": "vite.config.ts", "nextjs": "src/proxy.ts"}
+
+
+@pytest.mark.skipif(os.environ.get("QUOLL_NEW_TESTS") != "run", reason="set QUOLL_NEW_TESTS=run (npm, uv, network)")
+@pytest.mark.parametrize("front, back, runtime", [
+    ("angular", "express", []),
+    ("angular@20", "express@4", ["--node", "22"]),
+    ("react", "fastapi", []),
+    ("nextjs", "go", []),
+])
+def test_real_starters(tmp_path, monkeypatch, front, back, runtime) -> None:
     monkeypatch.undo()  # the real starters
-    args = ["--front", front, "--back", back, *(["--node", node] if node else [])]
+    args = ["--front", front, "--back", back, "--k8s", *runtime]
     result = runner.invoke(app, ["new", "shop", "-d", str(tmp_path), "--local", "-y", *args])
     assert result.exit_code == 0, result.output
     root = tmp_path / "shop"
-    assert (root / "front/proxy.conf.json").exists()  # `ng serve` forwards /api to the back-end
-    checks = [("back", ["npm", "test"]), ("back", ["npm", "run", "lint"]), ("front", ["npm", "run", "build"]),
-              ("front", ["npx", "prettier", "--check", "."])]
-    for part, check in checks:
-        done = subprocess.run(check, cwd=root / part, capture_output=True, text=True)
-        assert done.returncode == 0, done.stdout[-3000:] + done.stderr[-3000:]
+    front_name, back_name = front.split("@")[0], back.split("@")[0]
+    assert "/api" in (root / "front" / DEV_PROXY[front_name]).read_text()
+    for part, name in (("front", front_name), ("back", back_name)):
+        for check in REAL_CHECKS[name]:
+            if "prettier" in check and "prettier" not in (root / part / "package.json").read_text():
+                continue  # the project doesn't use Prettier: neither does its CI
+            done = subprocess.run(check, cwd=root / part, capture_output=True, text=True)
+            assert done.returncode == 0, f"{part}: {' '.join(check)}\n" + done.stdout[-3000:] + done.stderr[-3000:]
+    for command in ("ci", "docker", "k8s"):
+        assert runner.invoke(app, [command, "check", "-d", str(root)]).exit_code == 0
+
+
+# --------------------------------------------------------------------------- starters, offline
+
+
+def test_every_role_has_starters(monkeypatch) -> None:
+    monkeypatch.undo()  # the real registry
+    names = {role: [s.name for s in languages.starters(role)] for role in ("front", "back")}
+    assert {"angular", "react", "nextjs"} <= set(names["front"])
+    assert {"express", "fastapi", "go"} <= set(names["back"])
+
+
+def test_go_template(tmp_path) -> None:
+    from quoll.languages.go.starter import starter
+
+    starter.create(tmp_path, StarterOptions("shop-api", "", "1.26"))
+    assert (tmp_path / "go.mod").read_text() == "module shop-api\n\ngo 1.26\n"
+    assert {"main.go", "main_test.go", "go.sum", ".gitignore", "README.md"} <= {p.name for p in tmp_path.iterdir()}
+    assert "{{" not in "".join(p.read_text() for p in tmp_path.rglob("*") if p.is_file())
+
+
+def test_fastapi_template(tmp_path) -> None:
+    """The template itself, without uv's installs."""
+    import importlib
+
+    starter = importlib.import_module("quoll.languages.python.frameworks.fastapi.starter")
+    starter._copy(tmp_path, StarterOptions("shop-api", "", "3.13"))
+    assert (tmp_path / ".python-version").read_text() == "3.13\n"
+    assert 'requires-python = ">=3.13"' in (tmp_path / "pyproject.toml").read_text()
+    assert '@app.get("/health")' in (tmp_path / "app/main.py").read_text()
+    assert (tmp_path / "tests/test_main.py").exists() and (tmp_path / ".gitignore").exists()
+    assert "{{" not in "".join(p.read_text() for p in tmp_path.rglob("*") if p.is_file())
+
+
+def test_react_dev_proxy(tmp_path) -> None:
+    from quoll.languages.node.react import proxy
+
+    (tmp_path / "vite.config.ts").write_text(
+        'export default defineConfig({\n  plugins: [react()],\n});\n'
+    )
+    proxy(tmp_path, "/api", "http://localhost:8000", "BACK_URL")
+    assert '  server: { proxy: { "/api": "http://localhost:8000" } },\n' in (tmp_path / "vite.config.ts").read_text()
+
+
+@pytest.mark.parametrize("next_version, file", [("16.4.6", "proxy.ts"), ("^15.5.0", "middleware.ts")])
+def test_nextjs_proxy_reads_the_url_at_runtime(tmp_path, next_version, file) -> None:
+    from quoll.languages.node.frameworks.nextjs.starter import _standalone, proxy
+
+    (tmp_path / "package.json").write_text(json.dumps({"dependencies": {"next": next_version}}))
+    (tmp_path / "next.config.ts").write_text("const nextConfig: NextConfig = {\n};\n")
+    _standalone(tmp_path)
+    proxy(tmp_path, "/api", "http://localhost:8080", "BACK_URL")
+    assert '  output: "standalone",' in (tmp_path / "next.config.ts").read_text()
+    code = (tmp_path / "src" / file).read_text()
+    assert f"export function {file[:-3]}(" in code
+    assert 'process.env.BACK_URL ?? "http://localhost:8080"' in code and '"/api/:path*"' in code
 
 
 # --------------------------------------------------------------------------- services

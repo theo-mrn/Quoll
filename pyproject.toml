@@ -78,6 +78,8 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 120
 target-version = "py39"
+# Starters' templates are the generated projects' code, checked there (with their own settings).
+extend-exclude = ["quoll/languages/*/frameworks/*/template", "quoll/languages/*/templates"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B"]

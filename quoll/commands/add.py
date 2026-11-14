@@ -37,7 +37,9 @@ def service(
     spec: str = typer.Argument(..., help="NAME=STARTER[@VERSION], e.g. orders=express or orders=express@4."),
     project_dir: Path = DirOption,
     within: str = typer.Option(SERVICES_DIRECTORY, "--in", help="Directory holding the services."),
-    node: Optional[str] = typer.Option(None, "--node", help="Node.js version, e.g. 20."),
+    node: Optional[str] = typer.Option(None, "--node", help="Node.js version, e.g. 22."),
+    python: Optional[str] = typer.Option(None, "--python", help="Python version, e.g. 3.13."),
+    go: Optional[str] = typer.Option(None, "--go", help="Go version, e.g. 1.26."),
 ) -> None:
     """Create a service in services/<name>, and add it to the workspace's CI, compose.yaml and delivery."""
     root = find_root(resolve_dir(project_dir))
@@ -67,7 +69,8 @@ def service(
     platform = configured_platform(root) or platforms.detect(root, platforms.remote(root))
     before = snapshot(root, platform) if workspace else Snapshot(set(), None)
     with Progress(SpinnerColumn(), TextColumn("{task.description}"), console=console) as progress:
-        notes = create_part(root, root.name, Part(directory, starter, version, name), {"node": node or ""}, progress)
+        runtimes = {"node": node or "", "python": python or "", "go": go or ""}
+        notes = create_part(root, root.name, Part(directory, starter, version, name), runtimes, progress)
         quiet("Docker", docker_init(root / directory), progress)
 
         task = progress.add_task("Adding it to the workspace...")

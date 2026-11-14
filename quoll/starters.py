@@ -14,7 +14,11 @@ from typing import List, Optional, Sequence
 from quoll.languages.base import StarterOptions
 
 # Runtimes' container images, by runtime and version.
-IMAGES = {"node": "node:{version}"}
+IMAGES = {
+    "node": "node:{version}",
+    "python": "ghcr.io/astral-sh/uv:python{version}-bookworm-slim",
+    "go": "golang:{version}",
+}
 
 
 class StarterError(Exception):

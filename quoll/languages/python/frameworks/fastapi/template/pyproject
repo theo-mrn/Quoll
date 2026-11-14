@@ -1,0 +1,16 @@
+[project]
+name = "{{name}}"
+version = "0.1.0"
+description = "{{name}}: a FastAPI service"
+readme = "README.md"
+requires-python = ">={{runtime}}"
+dependencies = []
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

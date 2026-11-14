@@ -297,9 +297,10 @@ class Starter:
     # The runtime `runtime` options are for: `quoll new --node 20`.
     runtime: str = ""
     runtime_default: str = ""
-    # Front-ends: (directory, path, url) makes the dev server forward `path` (e.g. "/api") to the API at `url`, as
-    # nginx does in the image ([docker] proxy).
-    proxy: Optional[Callable[[Path, str, str], None]] = None
+    # Front-ends: (directory, path, url, variable) makes the app forward `path` (e.g. "/api") to the API: at `url`
+    # in development, at the URL in the environment variable `variable` once deployed (a static site's nginx does
+    # that part: [docker] proxy).
+    proxy: Optional[Callable[[Path, str, str, str], None]] = None
 
 
 @dataclass(frozen=True)
