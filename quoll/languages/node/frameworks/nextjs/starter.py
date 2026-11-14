@@ -103,6 +103,7 @@ def _standalone(directory: Path) -> None:
 
 
 starter = Starter(
-    name="nextjs", label="Next.js", role="front", create=create, runtime="node", runtime_default=NODE_DEFAULT,
+    name="nextjs", label="Next.js", role="front", create=create, dev="npm run dev", runtime="node",
+    runtime_default=NODE_DEFAULT,
     proxy=proxy,
 )

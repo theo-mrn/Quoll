@@ -67,6 +67,7 @@ def proxy(directory: Path, path: str, url: str, variable: str = "") -> None:
 
 
 starter = Starter(
-    name="react", label="React (Vite)", role="front", create=create, runtime="node", runtime_default=NODE_DEFAULT,
+    name="react", label="React (Vite)", role="front", create=create, dev="npm run dev", runtime="node",
+    runtime_default=NODE_DEFAULT,
     proxy=proxy,
 )

@@ -343,8 +343,8 @@ def _summary(root: Path, name: str, parts: List[Part], repo) -> None:
     console.print("\n[dim]Next steps:[/dim]")
     for part in parts:
         where = name if part.directory == "." else f"{name}/{part.directory}"
-        run = "npm start" if part.starter.role == "front" else "npm run dev"
-        console.print(f"  cd {where} && {run}")
+        if part.starter.dev:
+            console.print(f"  cd {where} && {part.starter.dev}")
     if len(parts) > 1:
         console.print(f"  cd {name} && docker compose up --build   # everything, with the databases")
     else:

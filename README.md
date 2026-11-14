@@ -394,8 +394,9 @@ feat: …  fix: …  feat!: …   →   release PR "chore(main): release 1.3.0" 
 - `fix:` bumps the patch, `feat:` the minor, a breaking change (`feat!:`, `BREAKING CHANGE:`) the major. Before `1.0.0`, a breaking change bumps the minor.
 - Node projects get their `package.json` (and `package-lock.json`) version bumped, Rust their `Cargo.toml` and `Cargo.lock`. The other stacks keep their version in the tag: release-please can't update every lockfile (`uv.lock` records the project's version).
 - A workspace releases as a whole, under one tag, like a `v*` tag pushed by hand.
-- `release-please-config.json` and `.release-please-manifest.json` are written once, starting from the latest `v*` tag, and are yours afterwards: release-please updates the manifest at each release.
-- The release PR and the tag are created with the workflow's own token, so they don't start any workflow by themselves (GitHub's rule against recursive runs). The release workflow starts the CI on the release PR, so that its required check reports, and the delivery on the tag.
+- `release-please-config.json` and `.release-please-manifest.json` are written once, starting from the latest `v*` tag (`0.1.0` for a project never released), and are yours afterwards: release-please updates the manifest at each release.
+- The release PR and the tag are created with the workflow's own token, so they start no workflow by themselves (GitHub's rule against recursive runs). The release workflow dispatches the CI on the release PR and the delivery on the tag. A dispatched run isn't attached to the pull request, so its `CI result` job also reports to the commit as a status, which branch protection reads.
+- On a public repository, GitHub also creates the release PR's `pull_request` run but waits for an approval, since the bot counts as a first-time contributor. It isn't required: the dispatched run already reported.
 - GitHub must let Actions open pull requests (Settings → Actions → General). `quoll new --remote` turns it on.
 
 GitLab has no release PR: push the `v*` tags there.

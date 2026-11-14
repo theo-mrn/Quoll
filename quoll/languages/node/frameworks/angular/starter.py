@@ -71,6 +71,7 @@ def proxy(directory: Path, path: str, url: str, variable: str = "") -> None:
 
 
 starter = Starter(
-    name="angular", label="Angular", role="front", create=create, runtime="node", runtime_default=NODE_DEFAULT,
+    name="angular", label="Angular", role="front", create=create, dev="npm start", runtime="node",
+    runtime_default=NODE_DEFAULT,
     proxy=proxy,
 )
