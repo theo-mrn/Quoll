@@ -38,6 +38,8 @@ starter = Starter(
         local_folder="node_modules",
     ),
     dev="npm run dev",
+    # Both maintained (https://expressjs.com/en/support).
+    versions=("5", "4"),
     runtime="node",
     runtime_default=NODE_DEFAULT,
 )

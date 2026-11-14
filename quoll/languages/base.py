@@ -296,6 +296,9 @@ class Starter:
     create: Callable[[Path, StarterOptions], Optional[List[str]]]
     # Runs it in development, from its directory: the next step `quoll new` prints.
     dev: str = ""
+    # Majors of the framework its maintainers still fix, the latest first: offered by `quoll new`, older ones
+    # flagged (the CI's dependency audit would fail on their known vulnerabilities). Empty: no version to choose.
+    versions: Tuple[str, ...] = ()
     # The runtime `runtime` options are for: `quoll new --node 20`.
     runtime: str = ""
     runtime_default: str = ""

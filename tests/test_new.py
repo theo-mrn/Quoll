@@ -390,3 +390,67 @@ def test_services_keep_their_charts(tmp_path) -> None:
     assert runner.invoke(app, ["remove", "service", "billing", "-y", "-d", str(root)]).exit_code == 0
     assert "BILLING_URL" not in yaml.safe_load((root / "back/chart/values.yaml").read_text())["env"]
     assert runner.invoke(app, ["k8s", "check", "-d", str(root)]).exit_code == 0
+
+
+# --------------------------------------------------------------------------- versions offered
+
+
+def _answering(monkeypatch, answers: list) -> list:
+    """Answer the prompts of `quoll new` in order; record (message, choice values)."""
+    import questionary
+
+    import quoll.commands.new as new
+
+    asked: list = []
+
+    def prompt(message, choices=(), **kwargs):
+        asked.append((message, [c.value for c in choices]))
+        return type("A", (), {"ask": lambda self: answers.pop(0)})()
+
+    fake = type("Q", (), {"Choice": questionary.Choice, "select": staticmethod(prompt), "text": staticmethod(prompt)})
+    monkeypatch.setattr(new, "questionary", fake)
+    return asked
+
+
+@pytest.mark.parametrize(
+    "answers, version", [(["api", ""], ""), (["api", "4"], "4"), (["api", "other", "4.21"], "4.21")]
+)
+def test_maintained_versions_are_offered(monkeypatch, answers, version) -> None:
+    from dataclasses import replace
+
+    import quoll.commands.new as new
+
+    api = replace(languages.starters("back")[0], versions=("5", "4"))
+    monkeypatch.setattr(languages, "starters", lambda role="": [api])
+    asked = _answering(monkeypatch, answers)
+    assert new._pick("back", None, yes=False) == ("back", api, version)
+    # Latest (resolved when the project is created), the older maintained majors, any other one.
+    assert asked[1] == ("API version", ["", "4", "other"])
+
+
+def test_no_version_to_choose(monkeypatch) -> None:
+    import quoll.commands.new as new
+
+    asked = _answering(monkeypatch, ["api"])
+    assert new._pick("back", None, yes=False)[2] == ""
+    assert len(asked) == 1  # the starter has no versions: not asked
+
+
+@pytest.mark.parametrize("version, flagged", [("3", True), ("3.21", True), ("4", False), ("6", False), ("", False)])
+def test_unmaintained_versions_are_flagged(version, flagged) -> None:
+    from dataclasses import replace
+
+    from quoll.commands.new import unmaintained
+
+    api = replace(languages.starters("back")[0], label="Express", versions=("5", "4"))
+    note = unmaintained(api, version)
+    assert bool(note) == flagged
+    if flagged:
+        assert note.startswith("Express 3 no longer gets security fixes") and note.endswith("Maintained: 5, 4.")
+
+
+def test_real_starters_offer_their_maintained_majors(monkeypatch) -> None:
+    monkeypatch.undo()  # the real registry
+    versions = {s.name: s.versions for s in languages.starters()}
+    assert versions["angular"] == ("22", "21", "20")
+    assert versions["express"] == ("5", "4") and versions["go"] == ()

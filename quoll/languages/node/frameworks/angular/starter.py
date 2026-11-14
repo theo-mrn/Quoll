@@ -42,13 +42,7 @@ def create(directory: Path, options: StarterOptions) -> List[str]:
         # quoll's files keep quoll's format when the project's Prettier runs.
         ".prettierignore": existing + "# Written by quoll: their format is quoll's.\n" + "\n".join(QUOLL_FILES) + "\n",
     })
-    notes = install_locally(directory, options.runtime, ["npm", "ci"], "node_modules")
-    if int(major) <= int(LATEST) - SUPPORTED:
-        notes.append(
-            f"Angular {major} no longer gets security fixes: the CI's dependency audit will fail on its known "
-            f"vulnerabilities. Supported: {int(LATEST) - SUPPORTED + 1} to {LATEST}."
-        )
-    return notes
+    return install_locally(directory, options.runtime, ["npm", "ci"], "node_modules")
 
 
 def proxy(directory: Path, path: str, url: str, variable: str = "") -> None:
@@ -72,6 +66,6 @@ def proxy(directory: Path, path: str, url: str, variable: str = "") -> None:
 
 starter = Starter(
     name="angular", label="Angular", role="front", create=create, dev="npm start", runtime="node",
-    runtime_default=NODE_DEFAULT,
+    runtime_default=NODE_DEFAULT, versions=tuple(str(int(LATEST) - i) for i in range(SUPPORTED)),
     proxy=proxy,
 )

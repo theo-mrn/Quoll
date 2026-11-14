@@ -488,7 +488,7 @@ From nothing to a repository whose pipeline passes on its first push:
 | `fastapi` | back | quoll's template: FastAPI with uv, pytest (TestClient), ruff, `/health` |
 | `go` | back | quoll's template: the standard library's `net/http` (Go 1.22+ routing), httptest, graceful shutdown, `/health` |
 
-**Versions.** `name@version` picks the framework's major; `--node 22`, `--python 3.13`, `--go 1.26` the runtime: the generators then run in that runtime's image (so the dependencies and the lockfile match it), and `.nvmrc`, `.python-version` or `go.mod` make the CI and the Dockerfile use it too. A version its maintainers no longer support is flagged at creation: the CI's dependency audit would fail on its known vulnerabilities.
+**Versions.** `name@version` picks the framework's major; `--node 22`, `--python 3.13`, `--go 1.26` the runtime: the generators then run in that runtime's image (so the dependencies and the lockfile match it), and `.nvmrc`, `.python-version` or `go.mod` make the CI and the Dockerfile use it too. Asked interactively, each framework offers its latest version and the older majors its maintainers still fix (Angular 22 to 20, React 19 and 18, Next.js 16 and 15, Express 5 and 4), or any other. A version they no longer fix is flagged at creation: the CI's dependency audit would fail on its known vulnerabilities.
 
 ### Microservices
 
