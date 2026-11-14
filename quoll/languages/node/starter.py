@@ -8,10 +8,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from quoll.languages.base import Starter
+from quoll.languages.node.detect import NODE_DEFAULT
 from quoll.starters import from_template
-
-# Node.js version when none is asked for: the active LTS.
-NODE_DEFAULT = "24"
 
 DEPENDENCIES = ["express@{{version}}"]
 DEV_DEPENDENCIES = [

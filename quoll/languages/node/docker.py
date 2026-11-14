@@ -123,8 +123,11 @@ def _setup(project: Project, cfg: DockerConfig) -> str:
     if cfg.package_manager == "pnpm":
         version = declared.split("@")[1] if declared.startswith("pnpm@") else cfg.package_manager_version
         return f"npm install --global pnpm@{version or PNPM_DEFAULT}"
+    # Node.js 25+ images no longer bundle corepack nor Yarn 1.
     if cfg.package_manager == "yarn":
-        return "corepack enable"
+        return "npm install --global corepack@latest && corepack enable"
+    if cfg.package_manager == "yarn-classic":
+        return "command -v yarn >/dev/null || npm install --global yarn@1"
     return ""
 
 

@@ -56,7 +56,7 @@ class PythonCI(CISteps):
 
     def image(self, cfg: CIConfig, version: str) -> str:
         if cfg.package_manager == "uv":
-            return f"ghcr.io/astral-sh/uv:python{version}-bookworm"
+            return f"ghcr.io/astral-sh/uv:python{version}-trixie"
         return f"python:{version}"
 
     def image_setup(self, cfg: CIConfig) -> List[Step]:

@@ -127,7 +127,7 @@ def test_gitlab_setup_template_and_layout(make_project, tmp_path) -> None:
     assert CliRunner().invoke(app, ["ci", "init", "-y", "--platform", "gitlab", "-d", str(root)]).exit_code == 0
     jobs = yaml.safe_load((root / ".gitlab/quoll-ci.yml").read_text())
     template = jobs[".quoll-setup"]
-    assert template["image"] == "ghcr.io/astral-sh/uv:python3.14-bookworm"
+    assert template["image"] == "ghcr.io/astral-sh/uv:python3.14-trixie"
     assert template["before_script"] == ["uv sync --locked --all-extras"]
     assert template["cache"][0]["paths"] == [".venv"]
     root_file = (root / ".gitlab-ci.yml").read_text()

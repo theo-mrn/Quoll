@@ -454,3 +454,20 @@ def test_real_starters_offer_their_maintained_majors(monkeypatch) -> None:
     versions = {s.name: s.versions for s in languages.starters()}
     assert versions["angular"] == ("22", "21", "20")
     assert versions["express"] == ("5", "4") and versions["go"] == ()
+
+
+@pytest.mark.skipif(not hasattr(os, "getuid"), reason="POSIX users")
+def test_generators_in_a_container_know_the_user(tmp_path, monkeypatch) -> None:
+    """create-next-app calls os.userInfo(), which fails on a uid missing from the container's /etc/passwd."""
+    import quoll.starters as starters
+
+    ran = []
+    monkeypatch.setattr(starters.shutil, "which", lambda name: "/usr/bin/docker" if name == "docker" else None)
+    monkeypatch.setattr(starters.subprocess, "run", lambda cmd, **kw: ran.append(cmd) or subprocess.CompletedProcess(
+        cmd, 0, "", ""))
+    starters.run(["npx", "create-next-app"], tmp_path, "node", "26")
+    cmd = ran[0]
+    passwd = next(arg.split(":")[0] for arg in cmd if arg.endswith(":/etc/passwd:ro"))
+    assert cmd[cmd.index("--user") + 1] == f"{os.getuid()}:{os.getgid()}"
+    assert f"quoll:x:{os.getuid()}:{os.getgid()}:" in Path(passwd).read_text()
+    assert "node:26" in cmd

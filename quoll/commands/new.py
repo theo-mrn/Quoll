@@ -31,7 +31,7 @@ DIRECTORIES = {"front": "front", "back": "back"}
 SERVICES_DIRECTORY = "services"
 # Runtime versions offered when none is given: (label, versions), the default first.
 RUNTIME_CHOICES = {
-    "node": ("Node.js", ["24", "22"]),
+    "node": ("Node.js", ["26", "24", "22"]),
     "python": ("Python", ["3.14", "3.13", "3.12"]),
     "go": ("Go", ["1.27", "1.26"]),
 }

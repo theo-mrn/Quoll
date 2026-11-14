@@ -123,7 +123,7 @@ def test_npm_removed_unless_the_command_needs_it(make_project, command, keeps) -
 
 def test_yarn_berry_keeps_its_config(make_project) -> None:
     text = dockerfile(make_project, NODE_YARN_BERRY)
-    assert "RUN corepack enable" in text
+    assert "RUN npm install --global corepack@latest && corepack enable" in text  # not bundled since Node.js 25
     assert "source=.yarnrc.yml" in text
     assert "yarn install --immutable" in text
 
