@@ -51,7 +51,7 @@ def create(directory: Path, options: StarterOptions) -> List[str]:
     return notes
 
 
-def proxy(directory: Path, path: str, url: str) -> None:
+def proxy(directory: Path, path: str, url: str, variable: str = "") -> None:
     """`ng serve` forwards `path` to the API (https://angular.dev/tools/cli/serve#proxying-to-a-backend-server)."""
     write(directory, {"proxy.conf.json": json.dumps({path: {"target": url, "secure": False}}, indent=2) + "\n"})
     config = directory / "angular.json"
@@ -61,10 +61,12 @@ def proxy(directory: Path, path: str, url: str) -> None:
         if serve:
             serve.setdefault("options", {})["proxyConfig"] = "proxy.conf.json"
     config.write_text(json.dumps(workspace, indent=2) + "\n")
-    # In the project's format: the CI checks it.
-    prettier = directory / "node_modules" / ".bin" / "prettier"
-    if prettier.exists():
-        subprocess.run([str(prettier), "--write", "angular.json", "proxy.conf.json"], cwd=directory,
+    # In the project's format when it uses Prettier (a dependency, or only its config in package.json): the CI
+    # checks it.
+    if "prettier" in (directory / "package.json").read_text():
+        local = directory / "node_modules" / ".bin" / "prettier"
+        command = [str(local)] if local.exists() else ["npx", "-y", "prettier"]
+        subprocess.run([*command, "--write", "angular.json", "proxy.conf.json"], cwd=directory,
                        capture_output=True, check=True)
 
 

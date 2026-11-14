@@ -448,6 +448,8 @@ In a **workspace**, every project deploys to the same namespaces and reaches the
 ```bash
 quoll new                                    # interactive
 quoll new shop --front angular --back express
+quoll new shop --front react --back fastapi --python 3.13
+quoll new shop --front nextjs --back go
 quoll new shop --front angular@18 --back express@4 --node 20 --platform gitlab --cd --k8s --remote
 quoll new shop --front angular --back none --service orders=express --service users=express@4
 ```
@@ -461,9 +463,13 @@ From nothing to a repository whose pipeline passes on its first push:
 | Starter | Role | How |
 |---|---|---|
 | `angular` | front | Angular's own CLI (`ng new`) at the chosen major — `angular@18` — plus ESLint (angular-eslint) |
+| `react` | front | Vite's own generator (`create-vite`, TypeScript), React's major with `react@18`; Vitest + Testing Library, Prettier |
+| `nextjs` | front | Next.js' own generator (`create-next-app`: App Router, ESLint, Tailwind), `nextjs@15`; standalone build, Vitest, Prettier |
 | `express` | back | quoll's template: Express (`express@4` for 4) and TypeScript, Vitest + Supertest, ESLint, `/health`, graceful shutdown |
+| `fastapi` | back | quoll's template: FastAPI with uv, pytest (TestClient), ruff, `/health` |
+| `go` | back | quoll's template: the standard library's `net/http` (Go 1.22+ routing), httptest, graceful shutdown, `/health` |
 
-**Versions.** `name@version` picks the framework's major; `--node 20` the runtime: the generators then run in `node:20` (so the dependencies and the lockfile match it), and `.nvmrc` makes the CI and the Dockerfile use it too. A version its maintainers no longer support is flagged at creation: the CI's dependency audit would fail on its known vulnerabilities.
+**Versions.** `name@version` picks the framework's major; `--node 22`, `--python 3.13`, `--go 1.26` the runtime: the generators then run in that runtime's image (so the dependencies and the lockfile match it), and `.nvmrc`, `.python-version` or `go.mod` make the CI and the Dockerfile use it too. A version its maintainers no longer support is flagged at creation: the CI's dependency audit would fail on its known vulnerabilities.
 
 ### Microservices
 
@@ -481,7 +487,7 @@ quoll remove service billing --keep-files    # only takes it out of the workspac
 
 `quoll remove service` does the opposite: the project leaves the members, its jobs, its compose service and `BILLING_URL`, its delivery and setup action are removed. It refuses to delete a directory with uncommitted changes.
 
-**Front-end → API.** With a front-end and a back-end, `quoll new` makes the front-end call the API on its own origin, at `/api/` (no CORS, no URL baked into the build): `ng serve` forwards there (`proxy.conf.json`), and so does nginx in the image, to the URL in `BACK_URL`, which the root `compose.yaml` sets:
+**Front-end → API.** With a front-end and a back-end, `quoll new` makes the front-end call the API on its own origin, at `/api/` (no CORS, no URL baked into the build). In development, the dev server forwards there (`proxy.conf.json` for Angular, Vite's `server.proxy`); deployed, to the URL in `BACK_URL`, which the root `compose.yaml` and the charts set — through nginx for a static site, through Next.js' own `proxy.ts` (read on each request) for Next.js:
 
 ```toml
 # front/quoll.toml

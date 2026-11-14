@@ -29,6 +29,12 @@ from quoll.workspace import member_name
 # Where each part goes when the repository holds several.
 DIRECTORIES = {"front": "front", "back": "back"}
 SERVICES_DIRECTORY = "services"
+# Runtime versions offered when none is given: (label, versions), the default first.
+RUNTIME_CHOICES = {
+    "node": ("Node.js", ["24", "22", "20"]),
+    "python": ("Python", ["3.14", "3.13", "3.12"]),
+    "go": ("Go", ["1.27", "1.26"]),
+}
 
 @dataclass
 class Part:
@@ -64,7 +70,9 @@ def new(
     services: List[str] = typer.Option(
         [], "--service", help="A service in services/<name>: NAME=STARTER[@VERSION], e.g. orders=express (repeatable)."
     ),
-    node: Optional[str] = typer.Option(None, "--node", help="Node.js version of the Node-based parts, e.g. 20."),
+    node: Optional[str] = typer.Option(None, "--node", help="Node.js version of the Node-based parts, e.g. 22."),
+    python: Optional[str] = typer.Option(None, "--python", help="Python version of the Python parts, e.g. 3.13."),
+    go: Optional[str] = typer.Option(None, "--go", help="Go version of the Go parts, e.g. 1.26."),
     platform: Optional[str] = platform_option(),
     delivery: Optional[bool] = typer.Option(None, "--cd/--no-cd", help="Also publish the images (quoll cd)."),
     kubernetes: Optional[bool] = typer.Option(
@@ -101,11 +109,14 @@ def new(
         Part(DIRECTORIES[role] if several else ".", starter, version, f"{name}-{role}" if several else name)
         for role, starter, version in picked
     ] + [Part(f"{SERVICES_DIRECTORY}/{n}" if several else ".", s, v, n) for n, s, v in picked_services]
-    if node is None and not yes and any(p.starter.runtime == "node" for p in parts):
-        node = ask(questionary.select(
-            "Node.js version", choices=["24", "22", "20"], default=parts[0].starter.runtime_default or "24"
-        ))
-    runtimes = {"node": node or ""}
+    runtimes = {"node": node, "python": python, "go": go}
+    for runtime, version in runtimes.items():
+        used = [p.starter for p in parts if p.starter.runtime == runtime]
+        if version is None and not yes and used:
+            label, choices = RUNTIME_CHOICES[runtime]
+            runtimes[runtime] = ask(questionary.select(f"{label} version", choices=choices,
+                                                       default=used[0].runtime_default or choices[0]))
+    runtimes = {runtime: version or "" for runtime, version in runtimes.items()}
     if platform is None:
         platform = "github" if yes else ask(questionary.select(
             "Hosting platform",
@@ -207,7 +218,7 @@ def create_part(root: Path, name: str, part: Part, runtimes: Dict[str, str], pro
     where = root / part.directory
     where.mkdir(parents=True, exist_ok=True)
     runtime = runtimes.get(part.starter.runtime, "")
-    details = f" (Node.js {runtime})" if runtime else ""
+    details = f" ({RUNTIME_CHOICES[part.starter.runtime][0]} {runtime})" if runtime else ""
     shown = f"{name}/" if part.directory == "." else f"{name}/{part.directory}/"
     task = progress.add_task(f"Creating {part.label}{details} in {shown}...")
     try:
@@ -225,19 +236,20 @@ def docker_init(directory: Path) -> Callable[[], None]:
 
 
 def proxy_api(root: Path, front: Part, back: Part) -> Callable[[], None]:
-    """The front-end calls the back-end at /api/, on its own origin (no CORS): its dev server forwards there, and
-    so does nginx in its image, to BACK_URL (set by the workspace's compose.yaml)."""
+    """The front-end calls the back-end at /api/, on its own origin (no CORS): in development, through its dev
+    server; deployed, to BACK_URL (set by the workspace's compose.yaml and charts) — through nginx for a static
+    site, the app's own server otherwise."""
 
     def run() -> None:
-        docker = docker_command._load(root / front.directory)
-        if not docker.static:  # a server-rendered front-end calls the API itself
-            return
+        variable = f"{member_name(back.directory).upper().replace('-', '_')}_URL"
         if front.starter.proxy:
             port = docker_command._load(root / back.directory).port
-            front.starter.proxy(root / front.directory, "/api", f"http://localhost:{port}")
-        docker.proxy = {"/api/": f"{member_name(back.directory).upper().replace('-', '_')}_URL"}
-        save_docker_config(root / front.directory, docker)
-        docker_command.update(project_dir=root / front.directory, yes=True, force=False)
+            front.starter.proxy(root / front.directory, "/api", f"http://localhost:{port}", variable)
+        docker = docker_command._load(root / front.directory)
+        if docker.static:
+            docker.proxy = {"/api/": variable}
+            save_docker_config(root / front.directory, docker)
+            docker_command.update(project_dir=root / front.directory, yes=True, force=False)
 
     return run
 
