@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from quoll.languages.base import Detection, DockerDefaults, DockerImage
@@ -79,6 +80,7 @@ class NodeImage(DockerImage):
             "prune": _PRUNE.get(pm, ""),
             "spa": self.spa,
             "build_env": self.build_env(cfg),
+            "keeps_npm": _calls_npm(cfg.command),
             "env": {"NODE_ENV": "production", "PORT": str(cfg.port), "HOST": "0.0.0.0", **self.env(cfg)},
         }
 
@@ -135,6 +137,15 @@ def _start_command(project: Project, pkg: dict, scripts: Dict[str, str]) -> str:
         if project.exists(name):
             return f"node {name}"
     return ""
+
+
+# npm-run-all's runners start npm themselves, without it appearing in the command.
+_NPM_CALLERS = re.compile(r"\b(npm|npx|run-s|run-p)\b")
+
+
+def _calls_npm(command: str) -> bool:
+    """The start command needs npm in the runtime image."""
+    return bool(_NPM_CALLERS.search(command))
 
 
 def _present(project: Project, names: tuple) -> List[str]:

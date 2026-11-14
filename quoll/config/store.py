@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 try:
     import tomllib
 except ImportError:
@@ -9,16 +11,13 @@ from pathlib import Path
 import tomli_w
 
 _CONFIG_PATH = Path.home() / ".config" / "quoll" / "config.toml"
-# Where tokens were stored before the tool was renamed; read when the new file doesn't exist yet.
-_LEGACY_CONFIG_PATH = Path.home() / ".config" / "forge" / "config.toml"
 
 
 def load_stored_token(platform: str = "github") -> str:
-    path = _CONFIG_PATH if _CONFIG_PATH.exists() else _LEGACY_CONFIG_PATH
-    if not path.exists():
+    if not _CONFIG_PATH.exists():
         return ""
     try:
-        with open(path, "rb") as f:
+        with open(_CONFIG_PATH, "rb") as f:
             data = tomllib.load(f)
         return data.get(platform, {}).get("token", "")
     except Exception:
@@ -35,5 +34,8 @@ def save_token(token: str, platform: str = "github") -> None:
         except Exception:
             pass
     existing.setdefault(platform, {})["token"] = token
-    with open(_CONFIG_PATH, "wb") as f:
+    # Owner-only: the file holds access tokens.
+    fd = os.open(_CONFIG_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as f:
         tomli_w.dump(existing, f)
+    os.chmod(_CONFIG_PATH, 0o600)

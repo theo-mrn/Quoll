@@ -42,6 +42,16 @@ if [ -f composer.lock ]; then
 fi"""
 
 
+# `composer audit --no-dev` exits 1 ("No installed packages found") when composer.json requires only
+# platform packages (php, ext-*): the lock file then has no production package to audit.
+_AUDIT = """if [ -f composer.lock ] \\
+  && php -r 'exit(empty(json_decode(file_get_contents("composer.lock"), true)["packages"]) ? 0 : 1);'; then
+  echo "No production dependency in composer.lock: nothing to audit."
+else
+  composer audit --locked --no-dev
+fi"""
+
+
 class PhpCI(CISteps):
     version_key = "php-version"
 
@@ -127,7 +137,7 @@ class PhpCI(CISteps):
         )
 
     def audit(self, cfg: CIConfig) -> List[Item]:
-        return [step("Dependency vulnerability scan", run="composer audit --locked --no-dev")]
+        return [step("Dependency vulnerability scan", run=_AUDIT)]
 
     def build(self, cfg: CIConfig) -> List[Item]:
         return [*self.install(cfg), step("Build", run=cfg.build.command)]

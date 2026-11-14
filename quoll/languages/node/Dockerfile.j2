@@ -73,7 +73,7 @@ EXPOSE {{ cfg.port }}
 {% else %}
 FROM {{ runtime_image }}
 {{ os_updates }}
-{% if user == "node" and "npm" not in cfg.command and "npx" not in cfg.command %}
+{% if user == "node" and not keeps_npm %}
 # npm and corepack built the app; the container only runs it (and they carry their own vulnerabilities).
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
     /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack

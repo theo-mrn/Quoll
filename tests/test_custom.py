@@ -16,7 +16,7 @@ from quoll.platforms.github import ci as github
 from quoll.platforms.gitlab.api import GitLabAPI
 from quoll.platforms.gitlab.ci import render_pipeline
 from tests.helpers import actionlint, config, gitlab_lint, load
-from tests.samples import GO, PYTHON_UV
+from tests.samples import CPP_CMAKE, GO, PYTHON_UV
 
 STEPS = [
     {"job": "test", "name": "Migrate", "run": "uv run alembic upgrade head", "secrets": ["DB_KEY"]},
@@ -46,6 +46,15 @@ def test_github_custom_steps(make_project, tmp_path) -> None:
     assert upload["uses"] == "actions/upload-artifact@v7" and upload["with"]["path"] == "report.html"
     assert _names(doc["jobs"]["lint"]["steps"])[-1] == "Docs"
     actionlint(tmp_path, text)
+
+
+def test_cpp_custom_steps_after_configure(make_project) -> None:
+    # The test and build jobs configure their own variant (instrumented, release): still the install step.
+    steps = [{"job": job, "name": f"Prepare {job}", "run": "./prepare.sh"} for job in ("test", "build")]
+    doc = load(github.render_workflow(config(make_project, CPP_CMAKE, steps=steps)))
+    for job in ("test", "build"):
+        names = _names(doc["jobs"][job]["steps"])
+        assert names.index("Configure") + 1 == names.index(f"Prepare {job}")
 
 
 def test_gitlab_custom_steps(make_project, tmp_path) -> None:

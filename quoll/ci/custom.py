@@ -16,8 +16,10 @@ def extend(cfg: CIConfig, job: str, items: List[Item]) -> List[Item]:
     after = [_step(s) for s in cfg.steps if s.job == job and s.when == "after"]
     if not before and not after:
         return items
-    installed = cfg.language.ci.install(cfg)
-    last = max((i for i, item in enumerate(items) if item in installed), default=-1)
+    # By name: a job may run its own variant of the install step (C/C++ configures the test build with
+    # coverage and sanitizers, the release build optimised), still the step that installs the dependencies.
+    installed = {item.name for item in cfg.language.ci.install(cfg)} - {""}
+    last = max((i for i, item in enumerate(items) if item.name in installed), default=-1)
     return [*items[: last + 1], *before, *items[last + 1 :], *after]
 
 
