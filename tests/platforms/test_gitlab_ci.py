@@ -68,12 +68,12 @@ def test_workflow_rules_and_stages(make_project) -> None:
 
 def test_versions_pick_the_image_and_matrix(make_project) -> None:
     doc = pipeline(make_project, PYTHON_UV, versions=["3.12", "3.13"])
-    assert doc["lint"]["image"] == "ghcr.io/astral-sh/uv:python3.13-bookworm"
+    assert doc["lint"]["image"] == "ghcr.io/astral-sh/uv:python3.13-trixie"
     assert doc["test"]["image"] == "$IMAGE"
     assert doc["test"]["parallel"] == {
         "matrix": [
-            {"PYTHON_VERSION": "3.12", "IMAGE": "ghcr.io/astral-sh/uv:python3.12-bookworm"},
-            {"PYTHON_VERSION": "3.13", "IMAGE": "ghcr.io/astral-sh/uv:python3.13-bookworm"},
+            {"PYTHON_VERSION": "3.12", "IMAGE": "ghcr.io/astral-sh/uv:python3.12-trixie"},
+            {"PYTHON_VERSION": "3.13", "IMAGE": "ghcr.io/astral-sh/uv:python3.13-trixie"},
         ]
     }
 
@@ -133,6 +133,9 @@ def test_caches_stay_in_the_project(make_project) -> None:
     [
         (PYTHON_POETRY, "python:", "pip install poetry"),
         (NODE_PNPM, "node:", "corepack enable"),
+        # Node.js 25+ images have no Yarn 1 any more.
+        ({"package.json": {"name": "app", "scripts": {"test": "node --test"}}, "yarn.lock": "# yarn lockfile v1\n"},
+         "node:", "npm install --global yarn@1"),
         (RUST, "rust:1", "rustup component add rustfmt clippy"),
         (PHP_COMPOSER, "php:", "install-php-extensions @composer"),
         (JAVA_MAVEN, "eclipse-temurin:", None),

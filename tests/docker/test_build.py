@@ -267,6 +267,12 @@ def express_yarn_berry(root: Path) -> None:
                   root)
 
 
+def express_yarn_classic(root: Path) -> None:
+    express_npm(root)
+    (root / "package-lock.json").unlink()
+    _in_container("node:24-slim", "yarn install --ignore-scripts", root)
+
+
 def maven_plain(root: Path) -> None:
     jar_plugin = (
         "<build><plugins><plugin><artifactId>maven-jar-plugin</artifactId><version>3.4.2</version><configuration>"
@@ -326,6 +332,7 @@ APPS = {
     "node-pnpm": App(express_pnpm),
     "node-bun": App(express_bun),
     "node-yarn-berry": App(express_yarn_berry),
+    "node-yarn-classic": App(express_yarn_classic),
     "maven": App(maven_plain),
     "spring-boot-gradle-kotlin": App(spring_boot_gradle_kotlin),
     "cpp": App(cpp_http),

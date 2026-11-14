@@ -8,9 +8,9 @@ from quoll.languages.node.ci import run_script
 from quoll.project import Project
 from quoll.services import detect_services
 
-# Used when the project doesn't say which version it targets.
-NODE_DEFAULT = "24"
-NODE_SUPPORTED = ("22", "24")
+# Used when the project doesn't say which version it targets, and by the starters: the active LTS.
+NODE_DEFAULT = "26"
+NODE_SUPPORTED = ("22", "24", "26")
 PNPM_DEFAULT = "10"
 
 # Checked in order: the first lockfile found decides the package manager.

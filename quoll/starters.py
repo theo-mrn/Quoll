@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import List, Optional, Sequence
 
@@ -16,7 +17,7 @@ from quoll.languages.base import StarterOptions
 # Runtimes' container images, by runtime and version.
 IMAGES = {
     "node": "node:{version}",
-    "python": "ghcr.io/astral-sh/uv:python{version}-bookworm-slim",
+    "python": "ghcr.io/astral-sh/uv:python{version}-trixie-slim",
     "go": "golang:{version}",
 }
 
@@ -31,9 +32,11 @@ def run(command: List[str], cwd: Path, runtime: str = "", version: str = "") -> 
     if shutil.which(command[0]) and not version:
         full = command
     elif image and shutil.which("docker"):
-        # The project's files stay the user's; caches go to the container's /tmp.
-        user = ["--user", f"{os.getuid()}:{os.getgid()}"] if hasattr(os, "getuid") else []
-        full = ["docker", "run", "--rm", "-v", f"{cwd}:/work", "-w", "/work", *user, "-e", "HOME=/tmp", image, *command]
+        # The project's files stay the user's; caches go to the container's /tmp. Mounted in /tmp too: some
+        # generators (create-next-app) want to be able to write next to the project.
+        user = _as_user() if hasattr(os, "getuid") else []
+        work = "/tmp/project"
+        full = ["docker", "run", "--rm", "-v", f"{cwd}:{work}", "-w", work, *user, "-e", "HOME=/tmp", image, *command]
     else:
         needed = f"Docker (to run {image})" if version else f"`{command[0]}` (or Docker)"
         raise StarterError(f"{needed} is needed to create this project")
@@ -41,6 +44,15 @@ def run(command: List[str], cwd: Path, runtime: str = "", version: str = "") -> 
     if result.returncode != 0:
         output = (result.stdout + result.stderr).strip().splitlines()
         raise StarterError(f"`{' '.join(command)}` failed:\n  " + "\n  ".join(output[-15:]))
+
+
+def _as_user() -> List[str]:
+    """Docker options running as the current user, known to the container: tools asking who they run as
+    (os.userInfo(), e.g. create-next-app) fail on a uid missing from /etc/passwd."""
+    uid, gid = os.getuid(), os.getgid()
+    passwd = Path(tempfile.gettempdir()) / f"quoll-passwd-{uid}"
+    passwd.write_text(f"root:x:0:0:root:/root:/bin/sh\nquoll:x:{uid}:{gid}:quoll:/tmp:/bin/sh\n")
+    return ["--user", f"{uid}:{gid}", "-v", f"{passwd}:/etc/passwd:ro"]
 
 
 def in_container(command: str, version: str) -> bool:

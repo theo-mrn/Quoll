@@ -112,6 +112,8 @@ class NodeCI(CISteps):
 
     def image_setup(self, cfg: CIConfig) -> List[Step]:
         pm = cfg.package_manager
+        if pm == "yarn-classic":
+            return [step("Set up Yarn", run="command -v yarn >/dev/null || npm install --global yarn@1")]
         if pm not in ("pnpm", "yarn"):
             return []
         # Corepack provides the version pinned in package.json "packageManager"; Node 25+ no longer bundles it.
