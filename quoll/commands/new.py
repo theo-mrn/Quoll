@@ -31,7 +31,7 @@ DIRECTORIES = {"front": "front", "back": "back"}
 SERVICES_DIRECTORY = "services"
 # Runtime versions offered when none is given: (label, versions), the default first.
 RUNTIME_CHOICES = {
-    "node": ("Node.js", ["24", "22", "20"]),
+    "node": ("Node.js", ["24", "22"]),
     "python": ("Python", ["3.14", "3.13", "3.12"]),
     "go": ("Go", ["1.27", "1.26"]),
 }
@@ -225,6 +225,7 @@ def create_part(root: Path, name: str, part: Part, runtimes: Dict[str, str], pro
     task = progress.add_task(f"Creating {part.label}{details} in {shown}...")
     try:
         notes = part.starter.create(where, StarterOptions(part.package, part.version, runtime)) or []
+        notes += [n for n in [unmaintained(part.starter, part.version)] if n]
     except StarterError as e:
         progress.stop()
         console.print(f"\n[red]Error:[/red] {e}")
@@ -302,9 +303,29 @@ def _pick(role: str, choice: Optional[str], yes: bool) -> Optional[Tuple[str, St
         console.print(f"[red]Error:[/red] unknown {role}-end '{starter_name}' (expected one of: {', '.join(by_name)}).")
         raise typer.Exit(1)
     starter = by_name[starter_name]
-    if asked:
-        version = ask(questionary.text(f"{starter.label} version (Enter: the latest)", default=""))
+    if asked and starter.versions:
+        version = ask(questionary.select(f"{starter.label} version", choices=[
+            questionary.Choice(f"Latest ({starter.versions[0]})", ""),
+            *(questionary.Choice(v, v) for v in starter.versions[1:]),
+            questionary.Choice("Other…", OTHER),
+        ]))
+        if version == OTHER:
+            version = ask(questionary.text(f"{starter.label} version, e.g. {starter.versions[-1]}"))
     return role, starter, version.strip()
+
+
+OTHER = "other"
+
+
+def unmaintained(starter: Starter, version: str) -> str:
+    """A note when `version` is older than the majors `starter`'s maintainers still fix."""
+    major = version.split(".")[0]
+    if not starter.versions or not major.isdigit() or int(major) >= int(starter.versions[-1]):
+        return ""
+    return (
+        f"{starter.label} {major} no longer gets security fixes: the CI's dependency audit will fail on its known "
+        f"vulnerabilities. Maintained: {', '.join(starter.versions)}."
+    )
 
 
 def _valid_name(value: str):

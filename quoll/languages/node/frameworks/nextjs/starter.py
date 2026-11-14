@@ -104,6 +104,7 @@ def _standalone(directory: Path) -> None:
 
 starter = Starter(
     name="nextjs", label="Next.js", role="front", create=create, dev="npm run dev", runtime="node",
-    runtime_default=NODE_DEFAULT,
+    # Active and maintenance LTS (https://nextjs.org/support-policy).
+    runtime_default=NODE_DEFAULT, versions=("16", "15"),
     proxy=proxy,
 )
