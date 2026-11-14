@@ -27,16 +27,20 @@ MANIFEST_PATH = Path(".release-please-manifest.json")
 # their version lives in the tag (e.g. uv.lock records the project's version, which release-please can't update).
 _RELEASE_TYPES = {"node": "node", "rust": "rust"}
 
-_DISPATCH_CI = 'gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"'
+# The PR's JSON goes through the environment, read by jq: GitHub evaluates a step's env even when its `if` skips it,
+# and fromJSON fails on the empty output of a run without release PR.
+_DISPATCH_CI = """branch=$(jq -r .headBranchName <<< "$PR")
+gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$branch\""""
 
 
 def plan(root: Path, branch: str, deliveries: List[str], workspace: bool) -> List[PlannedFile]:
     """The release workflow, dispatching the delivery workflows `deliveries` on each release; release-please's
     configuration and manifest, written once for the project to own."""
+    last = _last_version(root)
     return [
         planned(root, WORKFLOW_PATH, render_workflow(branch, deliveries, ci=_quoll_ci(root))),
-        planned(root, CONFIG_PATH, render_config(_release_type(root, workspace)), create_only=True),
-        planned(root, MANIFEST_PATH, _json({".": _last_version(root)}), create_only=True),
+        planned(root, CONFIG_PATH, render_config(_release_type(root, workspace), last), create_only=True),
+        planned(root, MANIFEST_PATH, _json({".": last or "0.0.0"}), create_only=True),
     ]
 
 
@@ -53,7 +57,7 @@ def render_workflow(branch: str, deliveries: List[str], ci: bool = True) -> str:
             "env": {
                 **gh_token,
                 "WORKFLOW": CI_PATH.name,
-                "BRANCH": "${{ fromJSON(steps.release.outputs.pr).headBranchName }}",
+                "PR": "${{ steps.release.outputs.pr }}",
             },
         })
     publish = "\n".join(f'gh workflow run {w} --repo "$GITHUB_REPOSITORY" --ref "$TAG"' for w in deliveries)
@@ -87,18 +91,20 @@ def render_workflow(branch: str, deliveries: List[str], ci: bool = True) -> str:
     return header("cd") + dump(doc)
 
 
-def render_config(release_type: str) -> str:
+def render_config(release_type: str, last_version: str = "") -> str:
+    package: Dict[str, Any] = {
+        "release-type": release_type,
+        # Tags v1.2.3: what the delivery publishes.
+        "include-component-in-tag": False,
+        # Before 1.0.0, a breaking change bumps the minor version.
+        "bump-minor-pre-major": True,
+    }
+    if not last_version:
+        # Without a previous release, release-please ignores the manifest and starts at 1.0.0.
+        package["initial-version"] = "0.1.0"
     return _json({
         "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
-        "packages": {
-            ".": {
-                "release-type": release_type,
-                # Tags v1.2.3: what the delivery publishes.
-                "include-component-in-tag": False,
-                # Before 1.0.0, a breaking change bumps the minor version.
-                "bump-minor-pre-major": True,
-            }
-        },
+        "packages": {".": package},
     })
 
 
@@ -113,7 +119,7 @@ def _release_type(root: Path, workspace: bool) -> str:
 
 
 def _last_version(root: Path) -> str:
-    """The latest v* tag, where release-please starts from; 0.0.0 for a project never released."""
+    """The latest v* tag, where release-please starts from; empty for a project never released."""
     result = subprocess.run(
         ["git", "describe", "--tags", "--abbrev=0", "--match", "v[0-9]*"],
         cwd=root,
@@ -122,7 +128,7 @@ def _last_version(root: Path) -> str:
         check=False,
     )
     tag = result.stdout.strip()
-    return tag[1:] if result.returncode == 0 and tag else "0.0.0"
+    return tag[1:] if result.returncode == 0 and tag else ""
 
 
 def _quoll_ci(root: Path) -> bool:

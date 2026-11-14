@@ -37,6 +37,7 @@ starter = Starter(
         local_install=["npm", "ci"],
         local_folder="node_modules",
     ),
+    dev="npm run dev",
     runtime="node",
     runtime_default=NODE_DEFAULT,
 )

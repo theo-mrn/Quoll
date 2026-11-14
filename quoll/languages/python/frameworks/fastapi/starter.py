@@ -36,5 +36,6 @@ def create(directory: Path, options: StarterOptions) -> List[str]:
 
 
 starter = Starter(
-    name="fastapi", label="FastAPI", role="back", create=create, runtime="python", runtime_default=PYTHON_DEFAULT
+    name="fastapi", label="FastAPI", role="back", create=create, dev="uv run fastapi dev app/main.py",
+    runtime="python", runtime_default=PYTHON_DEFAULT,
 )

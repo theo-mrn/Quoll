@@ -294,6 +294,8 @@ class Starter:
     role: str
     # (directory, options) -> warnings for the user (e.g. an unsupported version). The directory exists, empty.
     create: Callable[[Path, StarterOptions], Optional[List[str]]]
+    # Runs it in development, from its directory: the next step `quoll new` prints.
+    dev: str = ""
     # The runtime `runtime` options are for: `quoll new --node 20`.
     runtime: str = ""
     runtime_default: str = ""

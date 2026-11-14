@@ -23,6 +23,7 @@ starter = Starter(
         # Stored under another name: it would make the template a module of quoll's repository.
         renamed={"go.mod.tmpl": "go.mod"},
     ),
+    dev="go run .",
     runtime="go",
     runtime_default=GO_DEFAULT,
 )

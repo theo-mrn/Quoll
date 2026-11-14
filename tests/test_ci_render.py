@@ -32,6 +32,17 @@ def test_default_workflow_is_valid(make_project, tmp_path, name) -> None:
     actionlint(tmp_path, text)
 
 
+def test_dispatched_run_reports_to_the_commit(make_project) -> None:
+    """The release workflow's run on its release PR isn't attached to the PR: a commit status carries the result."""
+    gate = load(render.render_workflow(config(make_project, PYTHON_UV)))["jobs"]["ci-result"]
+    assert gate["permissions"] == {"statuses": "write"}
+    report = gate["steps"][0]
+    assert report["if"] == "${{ always() && github.event_name == 'workflow_dispatch' }}"
+    assert 'statuses/$GITHUB_SHA' in report["run"]
+    assert report["env"]["CONTEXT"] == render.GATE_CHECK
+    assert "'failure' || 'success'" in report["env"]["STATE"]
+
+
 def test_render_is_deterministic(make_project) -> None:
     cfg = config(make_project, PYTHON_UV)
     assert render.render_workflow(cfg) == render.render_workflow(cfg)

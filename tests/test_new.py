@@ -188,6 +188,20 @@ def test_every_role_has_starters(monkeypatch) -> None:
     names = {role: [s.name for s in languages.starters(role)] for role in ("front", "back")}
     assert {"angular", "react", "nextjs"} <= set(names["front"])
     assert {"express", "fastapi", "go"} <= set(names["back"])
+    # The next step `quoll new` prints: its own development command each.
+    assert all(s.dev for s in languages.starters())
+    assert {s.name: s.dev for s in languages.starters()}["go"] == "go run ."
+
+
+def test_next_steps_use_each_starters_command(tmp_path, monkeypatch) -> None:
+    from dataclasses import replace
+
+    fakes = [replace(s, dev=f"run-{s.name}") for s in languages.starters()]
+    monkeypatch.setattr(languages, "starters", lambda role="": [s for s in fakes if not role or s.role == role])
+    result = _new(tmp_path, "--front", "web", "--back", "api")
+    assert result.exit_code == 0, result.output
+    assert "cd shop/front && run-web" in result.output and "cd shop/back && run-api" in result.output
+    assert "npm" not in result.output
 
 
 def test_go_template(tmp_path) -> None:

@@ -251,7 +251,9 @@ def test_release_pr(make_project, tmp_path) -> None:
     # Created with the workflow's token, the release PR and the tag start nothing: dispatched instead.
     ci, publish = steps[1], steps[2]
     assert ci["env"]["WORKFLOW"] == "ci.yml"
-    assert ci["env"]["BRANCH"] == "${{ fromJSON(steps.release.outputs.pr).headBranchName }}"
+    # Read by jq: the step's env is evaluated even when its `if` skips it, which fromJSON can't take when empty.
+    assert ci["env"]["PR"] == "${{ steps.release.outputs.pr }}"
+    assert "jq -r .headBranchName" in ci["run"]
     assert publish["run"] == 'gh workflow run cd.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG"'
     assert doc["jobs"]["release"]["permissions"]["actions"] == "write"
     config = json.loads((root / "release-please-config.json").read_text())
@@ -259,6 +261,8 @@ def test_release_pr(make_project, tmp_path) -> None:
         "release-type": "simple",  # Go: the version lives in the tag
         "include-component-in-tag": False,
         "bump-minor-pre-major": True,
+        # Never released: release-please would start at 1.0.0.
+        "initial-version": "0.1.0",
     }
     assert json.loads((root / ".release-please-manifest.json").read_text()) == {".": "0.0.0"}
     actionlint(tmp_path, text)
@@ -279,8 +283,10 @@ def test_release_pr_starts_from_the_last_tag(make_project) -> None:
     assert _quoll("ci", "init", "-y", "-d", str(root)).exit_code == 0
     assert _quoll("cd", "init", "-y", "-d", str(root), "--image", "ghcr.io/acme/api").exit_code == 0
     assert json.loads((root / ".release-please-manifest.json").read_text()) == {".": "0.3.1"}
+    package = json.loads((root / "release-please-config.json").read_text())["packages"]["."]
     # Node: package.json's version follows (and package-lock.json's).
-    assert json.loads((root / "release-please-config.json").read_text())["packages"]["."]["release-type"] == "node"
+    assert package["release-type"] == "node"
+    assert "initial-version" not in package  # the next release follows v0.3.1
 
 
 def test_no_release_pr(make_project) -> None:

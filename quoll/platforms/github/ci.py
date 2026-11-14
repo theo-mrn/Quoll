@@ -68,7 +68,21 @@ def render_workflow(target: Union[CIConfig, Repo]) -> str:
         "needs": list(jobs),
         "runs-on": "ubuntu-latest",
         "timeout-minutes": 5,
+        "permissions": {"statuses": "write"},
         "steps": [
+            {
+                # A dispatched run (the release workflow's, on its release PR) isn't attached to the pull request:
+                # its result goes to the commit too, as a status branch protection reads.
+                "name": "Report to the commit",
+                "if": "${{ always() && github.event_name == 'workflow_dispatch' }}",
+                "run": _REPORT_STATUS,
+                "env": {
+                    "GH_TOKEN": "${{ github.token }}",
+                    "STATE": "${{ (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) "
+                    "&& 'failure' || 'success' }}",
+                    "CONTEXT": GATE_CHECK,
+                },
+            },
             {
                 "name": "Check job results",
                 "if": "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}",
@@ -287,6 +301,10 @@ def _secrets_job() -> Dict[str, Any]:
 def _sast_job() -> Dict[str, Any]:
     return _job("Static analysis", 15, [checkout(), sast()], container=SEMGREP_IMAGE)
 
+
+_REPORT_STATUS = """gh api "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \\
+  -f state="$STATE" -f context="$CONTEXT" \\
+  -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\""""
 
 # Whatever touches every member: the workspace's quoll.toml and the CI itself.
 _SHARED_PATHS = r"quoll\.toml$|\.github/"
