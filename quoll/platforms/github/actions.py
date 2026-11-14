@@ -35,6 +35,7 @@ ACTIONS = {
     "upload-artifact": "actions/upload-artifact@v7",
     "attest": "actions/attest@v4",
     "setup-helm": "azure/setup-helm@v5",
+    "release-please": "googleapis/release-please-action@v5",
 }
 
 # Commit of each version above. Refresh with:
@@ -61,6 +62,7 @@ PINS = {
     "github/codeql-action/init@v4": "33d7b85da1a04171e211befe2c739303b9a4c066",
     "actions/upload-artifact@v7": "cf430e030ddbb5b0abf93d22962f4752f3646cd9",
     "azure/setup-helm@v5": "2f5e7bc67f1f9972ab16657bb795f36d8f04de0e",
+    "googleapis/release-please-action@v5": "45996ed1f6d02564a971a2fa1b5860e934307cf7",
     "actions/attest@v4": "1e69f48acb82d1966a394da916b4c1698aa569d6",
     "mikepenz/action-junit-report@v6": "a16be3a69023e9bd7e748ede768b3282ea7b30ce",
     "golangci/golangci-lint-action@v9": "ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a",

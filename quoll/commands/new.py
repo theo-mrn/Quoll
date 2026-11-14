@@ -180,7 +180,7 @@ def new(
             steps.append(("Kubernetes", lambda: k8s_command.init(project_dir=root, yes=True, force=False)))
         if delivery:
             steps.append(("CD", lambda: cd_command.init(
-                project_dir=root, yes=True, force=False, platform=platform, registry=None, image=None
+                project_dir=root, yes=True, force=False, platform=platform, registry=None, image=None, release_pr=None
             )))
         for label, run in steps:
             quiet(label, run, progress)
@@ -197,6 +197,8 @@ def new(
                 try:
                     api = target.api()
                     warnings = api.protect_branch(repo.path, "main", required_checks=target.required_checks)
+                    if delivery:
+                        warnings += api.allow_release_prs(repo.path)
                     if target.schedules_via_api:
                         api.ensure_schedule(repo.path, "main", "0 6 * * 1")
                 except PlatformError as e:

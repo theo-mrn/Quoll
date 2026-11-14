@@ -88,7 +88,7 @@ def service(
             reference = next(load_cd_config(root / m) for m in members if "cd" in quoll_toml.read(root / m))
             quiet("CD", lambda: cd_command._configure(
                 root / directory, root, member_name(directory), yes=True, force=False, platform=platform,
-                registry=reference.registry, image=None,
+                registry=reference.registry, image=None, release_pr=reference.release_pr,
             ), progress)
 
         # And its chart, deployed with the others: same namespaces.

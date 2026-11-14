@@ -372,6 +372,7 @@ registry = "ghcr"                 # ghcr (GitHub) | gitlab (GitLab) | dockerhub
 image = "ghcr.io/acme/api"
 branches = ["main"]
 release_tags = true
+release_pr = true                 # GitHub: release-please opens the release PR that tags v* (below)
 platforms = ["linux/amd64"]       # e.g. ["linux/amd64", "linux/arm64"]
 scan = true
 severity = ["CRITICAL", "HIGH"]
@@ -381,6 +382,23 @@ sign = true                       # Sigstore signature and attestations (set fal
 ```
 
 On GitHub, branch protection (set by `quoll ci init`) makes sure only commits that passed CI reach the default branch, and therefore the registry.
+
+### Releases
+
+On GitHub, nobody has to push the `v*` tags: with `release_pr` (the default of `quoll cd init`), [release-please](https://github.com/googleapis/release-please) reads the [Conventional Commits](https://www.conventionalcommits.org/) on the default branch and keeps a **release PR** open with the next version and its `CHANGELOG.md`. Merging it tags `v<version>` and creates the GitHub release, which publishes the image and, with a chart, deploys to production after the approval.
+
+```
+feat: …  fix: …  feat!: …   →   release PR "chore(main): release 1.3.0"   →   merge   →   v1.3.0   →   CD
+```
+
+- `fix:` bumps the patch, `feat:` the minor, a breaking change (`feat!:`, `BREAKING CHANGE:`) the major. Before `1.0.0`, a breaking change bumps the minor.
+- Node projects get their `package.json` (and `package-lock.json`) version bumped, Rust their `Cargo.toml` and `Cargo.lock`. The other stacks keep their version in the tag: release-please can't update every lockfile (`uv.lock` records the project's version).
+- A workspace releases as a whole, under one tag, like a `v*` tag pushed by hand.
+- `release-please-config.json` and `.release-please-manifest.json` are written once, starting from the latest `v*` tag, and are yours afterwards: release-please updates the manifest at each release.
+- The release PR and the tag are created with the workflow's own token, so they don't start any workflow by themselves (GitHub's rule against recursive runs). The release workflow starts the CI on the release PR, so that its required check reports, and the delivery on the tag.
+- GitHub must let Actions open pull requests (Settings → Actions → General). `quoll new --remote` turns it on.
+
+GitLab has no release PR: push the `v*` tags there.
 
 ## Kubernetes
 

@@ -27,6 +27,9 @@ class CDConfig(Section, PlatformField):
     branches: List[str] = Field(default_factory=lambda: ["main"])
     # Git tags v1.2.3 publish :1.2.3 and :1.2.
     release_tags: bool = True
+    # GitHub: release-please keeps a release pull request open from the Conventional Commits on the default branch
+    # (next version, CHANGELOG.md); merging it tags v<version>, which publishes the image and deploys to production.
+    release_pr: bool = False
     platforms: List[str] = Field(default_factory=lambda: ["linux/amd64"])
     # Trivy scans the image before it is pushed; findings of these severities block the push.
     scan: bool = True
@@ -60,6 +63,10 @@ class CDConfig(Section, PlatformField):
             raise ValueError(f"unknown severity '{unknown[0]}' (expected some of: {', '.join(SEVERITIES)})")
         if self.scan and not self.severity:
             raise ValueError("severity must list at least one level when scan is true")
+        if self.release_pr and self.platform != "github":
+            raise ValueError("release_pr is GitHub only (release-please): push the v* tags yourself")
+        if self.release_pr and not self.release_tags:
+            raise ValueError("release_pr needs release_tags: the release it tags is what publishes")
         if not self.branches and not self.release_tags:
             raise ValueError("nothing would publish the image: set branches or release_tags")
         if not self.platforms:

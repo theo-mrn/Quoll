@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 
 import pytest
@@ -230,3 +231,93 @@ def test_digest_extraction(tmp_path) -> None:
     )
     assert out.stdout.strip() == "Digest: sha256:abc123"
 
+
+
+# --------------------------------------------------------------------------- Releases (release-please)
+
+
+def test_release_pr(make_project, tmp_path) -> None:
+    root = make_project({**GO, "Dockerfile": "FROM scratch\n"})
+    assert _quoll("ci", "init", "-y", "-d", str(root)).exit_code == 0
+    result = _quoll("cd", "init", "-y", "-d", str(root), "--image", "ghcr.io/acme/api")
+    assert result.exit_code == 0, result.output
+    assert "release_pr = true" in (root / "quoll.toml").read_text()
+    assert "Conventional Commits" in result.output
+    text = (root / ".github/workflows/release.yml").read_text()
+    doc = load(text)
+    assert doc["on"] == {"push": {"branches": ["main"]}}
+    steps = doc["jobs"]["release"]["steps"]
+    assert steps[0]["uses"].startswith("googleapis/release-please-action@")
+    # Created with the workflow's token, the release PR and the tag start nothing: dispatched instead.
+    ci, publish = steps[1], steps[2]
+    assert ci["env"]["WORKFLOW"] == "ci.yml"
+    assert ci["env"]["BRANCH"] == "${{ fromJSON(steps.release.outputs.pr).headBranchName }}"
+    assert publish["run"] == 'gh workflow run cd.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG"'
+    assert doc["jobs"]["release"]["permissions"]["actions"] == "write"
+    config = json.loads((root / "release-please-config.json").read_text())
+    assert config["packages"]["."] == {
+        "release-type": "simple",  # Go: the version lives in the tag
+        "include-component-in-tag": False,
+        "bump-minor-pre-major": True,
+    }
+    assert json.loads((root / ".release-please-manifest.json").read_text()) == {".": "0.0.0"}
+    actionlint(tmp_path, text)
+
+    # release-please owns its manifest: check and update leave it alone.
+    (root / ".release-please-manifest.json").write_text('{".": "1.4.0"}\n')
+    assert _quoll("cd", "check", "-d", str(root)).exit_code == 0
+    assert _quoll("cd", "update", "-y", "-d", str(root)).exit_code == 0
+    assert "1.4.0" in (root / ".release-please-manifest.json").read_text()
+
+
+def test_release_pr_starts_from_the_last_tag(make_project) -> None:
+    root = make_project({"package.json": {"name": "api", "scripts": {"start": "node index.js"}}, "index.js": ""})
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false"]
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=root, check=True)
+    subprocess.run([*git, "commit", "-q", "--allow-empty", "-m", "feat: first"], cwd=root, check=True)
+    subprocess.run([*git, "tag", "v0.3.1"], cwd=root, check=True)
+    assert _quoll("ci", "init", "-y", "-d", str(root)).exit_code == 0
+    assert _quoll("cd", "init", "-y", "-d", str(root), "--image", "ghcr.io/acme/api").exit_code == 0
+    assert json.loads((root / ".release-please-manifest.json").read_text()) == {".": "0.3.1"}
+    # Node: package.json's version follows (and package-lock.json's).
+    assert json.loads((root / "release-please-config.json").read_text())["packages"]["."]["release-type"] == "node"
+
+
+def test_no_release_pr(make_project) -> None:
+    root = make_project(GO)
+    result = _quoll("cd", "init", "-y", "-d", str(root), "--image", "ghcr.io/acme/api", "--no-release-pr")
+    assert result.exit_code == 0, result.output
+    assert not (root / ".github/workflows/release.yml").exists()
+    assert not (root / "release-please-config.json").exists()
+
+
+def test_release_without_quoll_ci_dispatches_only_the_delivery() -> None:
+    from quoll.platforms.github.release import render_workflow
+
+    doc = load(render_workflow("trunk", ["cd-web.yml", "cd-api.yml"], ci=False))
+    assert doc["on"] == {"push": {"branches": ["trunk"]}}
+    names = [s["name"] for s in doc["jobs"]["release"]["steps"]]
+    assert names == ["Release PR or release", "Publish the release"]
+    run = doc["jobs"]["release"]["steps"][1]["run"]
+    assert "gh workflow run cd-web.yml" in run and "gh workflow run cd-api.yml" in run
+
+
+@pytest.mark.parametrize(
+    "fields, error",
+    [
+        ({"platform": "gitlab", "image": "registry.gitlab.com/acme/api", "release_pr": True}, "GitHub only"),
+        ({"image": "ghcr.io/acme/api", "release_pr": True, "release_tags": False}, "needs release_tags"),
+    ],
+)
+def test_release_pr_validation(fields, error) -> None:
+    with pytest.raises(ValueError, match=error):
+        CDConfig(**fields)
+
+
+def test_init_again_keeps_the_manifest(make_project) -> None:
+    root = make_project(GO)
+    args = ("cd", "init", "-y", "--force", "-d", str(root), "--image", "ghcr.io/acme/api")
+    assert _quoll(*args).exit_code == 0
+    (root / ".release-please-manifest.json").write_text('{".": "2.0.0"}\n')
+    assert _quoll(*args).exit_code == 0
+    assert "2.0.0" in (root / ".release-please-manifest.json").read_text()

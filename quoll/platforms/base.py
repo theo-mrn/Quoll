@@ -59,6 +59,10 @@ class PlatformAPI(ABC):
         it (GitHub's `on: schedule`)."""
         return False
 
+    def allow_release_prs(self, repo: str) -> List[str]:
+        """Let the pipeline's own token open pull requests (release-please's release PR). Returns warnings."""
+        return []
+
     @abstractmethod
     def protect_branch(
         self, repo: str, branch: str, required_checks: Sequence[str] = (), required_reviews: int = 0

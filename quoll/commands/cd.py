@@ -39,6 +39,10 @@ def init(
         None, help="ghcr (GitHub) or gitlab (GitLab) — the default —, or dockerhub."
     ),
     image: Optional[str] = typer.Option(None, help="Image name, e.g. ghcr.io/acme/api."),
+    release_pr: Optional[bool] = typer.Option(
+        None, "--release-pr/--no-release-pr",
+        help="GitHub: a release PR from the Conventional Commits (release-please) tags the releases (default: yes).",
+    ),
 ) -> None:
     """Write [cd] in quoll.toml and generate the delivery pipeline.
 
@@ -53,7 +57,7 @@ def init(
         raise typer.Exit(1)
     if workspace is None:
         cfg = _configure(project_dir, root, "", yes=yes, force=force, platform=platform, registry=registry,
-                         image=image)
+                         image=image, release_pr=release_pr)
         if cfg is None:
             raise typer.Exit(0)
         deliveries: List[Delivery] = [Delivery("", ".", cfg)]
@@ -70,11 +74,14 @@ def init(
             raise typer.Exit(1)
         for member in members:
             _configure(root / member, root, member_name(member), yes=yes, force=force, platform=platform,
-                       registry=registry, image=image)
+                       registry=registry, image=image, release_pr=release_pr)
+            # A workspace releases as a whole: asked once.
+            if release_pr is None:
+                release_pr = _read(root / member).get("cd", {}).get("release_pr", False)
         deliveries = _deliveries(root)
 
     cfg = deliveries[0].cfg
-    files = _plan(root, deliveries)
+    files = _writable(_plan(root, deliveries))
     if not confirm_overwrite(files, yes=yes, force=force):
         raise typer.Exit(1)
     for delivery in deliveries:
@@ -94,6 +101,16 @@ def init(
         console.print(f"Set the {names} {target.label} {target.secrets_label}.")
     if cfg.platform == "gitlab":
         _check_gitlab_include(root)
+    if any(d.cfg.release_pr for d in deliveries):
+        console.print(RELEASE_NOTE)
+
+
+RELEASE_NOTE = (
+    "\nReleases: commit with Conventional Commits ([bold]feat:[/bold], [bold]fix:[/bold], [bold]feat!:[/bold]); "
+    "release-please keeps a release PR open, and merging it tags the version, which publishes and deploys.\n"
+    "GitHub must let Actions open pull requests: Settings → Actions → General → "
+    "[bold]Allow GitHub Actions to create and approve pull requests[/bold] (`quoll new --remote` turns it on)."
+)
 
 
 def _configure(
@@ -106,6 +123,7 @@ def _configure(
     platform: Optional[str],
     registry: Optional[str],
     image: Optional[str],
+    release_pr: Optional[bool] = None,
 ) -> Optional[CDConfig]:
     """The [cd] of one project, asked or defaulted; saved in its quoll.toml. None when kept as it was."""
     console.print(f"\n[bold]quoll cd[/bold] — {member or project_dir.name}\n")
@@ -136,10 +154,18 @@ def _configure(
 
     note = " (private GitHub repositories need GitHub Enterprise Cloud)" if name == "github" else ""
     sign = True if yes else ask(questionary.confirm(f"Sign the image and its SBOM with Sigstore{note}?", default=True))
+    if name != "github":
+        release_pr = False
+    elif release_pr is None:
+        release_pr = True if yes else ask(questionary.confirm(
+            "Open a release PR from the Conventional Commits (release-please)? Merging it tags the version.",
+            default=True,
+        ))
 
     try:
         cfg = CDConfig(
-            platform=name, registry=registry, image=image.lower(), branches=[default_branch(root)], sign=sign
+            platform=name, registry=registry, image=image.lower(), branches=[default_branch(root)], sign=sign,
+            release_pr=release_pr,
         )
     except ValueError as e:
         console.print(f"[red]Error:[/red] {e}")
@@ -158,19 +184,24 @@ def update(
 ) -> None:
     """Regenerate the delivery workflow from quoll.toml (the workspace's, from any of its directories)."""
     root = find_root(resolve_dir(project_dir))
-    update_files(root, _plan(root, _deliveries(root)), yes=yes, force=force, what="CD is")
+    update_files(root, _writable(_plan(root, _deliveries(root))), yes=yes, force=force, what="CD is")
 
 
 @app.command()
 def check(project_dir: Path = DirOption) -> None:
     """Fail if the delivery pipeline differs from what quoll.toml describes."""
     root = find_root(resolve_dir(project_dir))
-    check_files(_plan(root, _deliveries(root)), "cd")
+    check_files([f for f in _plan(root, _deliveries(root)) if not f.create_only], "cd")
 
 
 def _plan(root: Path, deliveries: List[Delivery]) -> List[PlannedFile]:
     target: Union[CDConfig, List[Delivery]] = deliveries[0].cfg if not deliveries[0].name else deliveries
     return platforms.get(deliveries[0].cfg.platform).cd_files(root, target)
+
+
+def _writable(files: List[PlannedFile]) -> List[PlannedFile]:
+    """Without release-please's configuration and manifest once written: they are the project's then."""
+    return [f for f in files if not (f.create_only and f.existing is not None)]
 
 
 def _deliveries(root: Path) -> List[Delivery]:
@@ -204,6 +235,8 @@ def _print_config(cfg: CDConfig) -> None:
     table.add_row("Platforms", ", ".join(cfg.platforms))
     table.add_row("SBOM", "artifact + release asset" if cfg.sbom else "off")
     table.add_row("Signature", "Sigstore" if cfg.sign else "off")
+    if cfg.platform == "github":
+        table.add_row("Releases", "release PR (release-please)" if cfg.release_pr else "v* tags pushed by hand")
     console.print(table)
 
 
