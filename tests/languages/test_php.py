@@ -16,7 +16,9 @@ def test_composer(make_project) -> None:
     assert steps(doc, "test")[1]["with"]["coverage"] == "pcov"
     assert "vendor/bin/phpstan analyse --no-progress --error-format=github" in runs(doc, "lint")
     assert 'simplexml_load_file("coverage.xml")' in runs(doc, "test")
-    assert "composer audit --locked --no-dev" in runs(doc, "audit")
+    audit = runs(doc, "audit")
+    assert "composer audit --locked --no-dev" in audit
+    assert "nothing to audit" in audit  # composer.json requiring only php: audit would exit 1
 
 
 def test_pest_threshold(make_project) -> None:
