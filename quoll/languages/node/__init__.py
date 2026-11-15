@@ -4,7 +4,7 @@ from quoll.languages.base import Language
 from quoll.languages.node.ci import NodeCI
 from quoll.languages.node.detect import detect
 from quoll.languages.node.docker import NodeImage
-from quoll.languages.node.frameworks import angular, astro, nestjs, nextjs, nuxt, sveltekit
+from quoll.languages.node.frameworks import angular, astro, nestjs, nextjs, nuxt, sveltekit, vue
 from quoll.languages.node.react import starter as react
 from quoll.languages.node.starter import starter as express
 
@@ -23,6 +23,7 @@ language = Language(
         astro.framework,
         angular.framework,
         nestjs.framework,
+        vue.framework,
     ),
     scripts=True,
     docker=NodeImage(),

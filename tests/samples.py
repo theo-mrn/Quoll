@@ -233,6 +233,16 @@ SPRING_BOOT = {
     "src/test/java/AppTest.java": "",
 }
 
+VUE = {
+    "package.json": {
+        "scripts": {"build": "vite build"},
+        "dependencies": {"vue": "3"},
+        "devDependencies": {"typescript": "5", "vue-tsc": "2", "vite": "6", "vitest": "3", "@vitest/coverage-v8": "3"},
+    },
+    "package-lock.json": "{}",
+    "tsconfig.json": "{}",
+}
+
 # One sample per language and per framework, used by the plugin contract tests.
 CPP_CMAKE = {
     "CMakeLists.txt": "cmake_minimum_required(VERSION 3.25)\nproject(calc CXX)\nadd_executable(calc src/main.cpp)\n"
@@ -279,6 +289,7 @@ SAMPLE_BY_FRAMEWORK = {
     "laravel": LARAVEL,
     "rails": RAILS,
     "spring-boot": SPRING_BOOT,
+    "vue": VUE,
 }
 
 ALL_PROJECTS = {

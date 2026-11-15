@@ -148,12 +148,13 @@ REAL_CHECKS = {
     "express": _NODE_CHECKS,
     "react": _NODE_CHECKS,
     "nextjs": _NODE_CHECKS,
+    "vue": _NODE_CHECKS,
     "fastapi": [["uv", "run", "pytest"], ["uv", "run", "ruff", "check", "."],
                 ["uv", "run", "ruff", "format", "--check", "."]],
     "go": [["go", "vet", "./..."], ["go", "test", "./..."]],
 }
 # The dev server's (or the app's) forwarding of /api to the back-end, by front-end.
-DEV_PROXY = {"angular": "proxy.conf.json", "react": "vite.config.ts", "nextjs": "src/proxy.ts"}
+DEV_PROXY = {"angular": "proxy.conf.json", "react": "vite.config.ts", "nextjs": "src/proxy.ts", "vue": "vite.config.ts"}
 
 
 @pytest.mark.skipif(os.environ.get("QUOLL_NEW_TESTS") != "run", reason="set QUOLL_NEW_TESTS=run (npm, uv, network)")
@@ -455,6 +456,7 @@ def test_real_starters_offer_their_maintained_majors(monkeypatch) -> None:
     versions = {s.name: s.versions for s in languages.starters()}
     assert versions["angular"] == ("22", "21", "20")
     assert versions["express"] == ("5", "4") and versions["go"] == ()
+    assert versions["vue"] == ("3",)
 
 
 @pytest.mark.skipif(not hasattr(os, "getuid"), reason="POSIX users")
@@ -554,3 +556,22 @@ def test_angular_minor(tmp_path, monkeypatch) -> None:
 def test_angular_ai_config_since_20_2(version, expected) -> None:
     angular = importlib.import_module("quoll.languages.node.frameworks.angular.starter")
     assert angular.has_ai_config(version) is expected
+
+
+def test_vue_minor(tmp_path, monkeypatch) -> None:
+    vue = importlib.import_module("quoll.languages.node.frameworks.vue.starter")
+
+    ran = _recording(monkeypatch, vue)
+    (tmp_path / "package.json").write_text(json.dumps({"name": "x", "scripts": {}}))
+    vue.create(tmp_path, StarterOptions("web", "3.5", ""))
+    installs = [" ".join(c) for c in ran if c[:2] == ["npm", "install"]]
+    assert "npm install --save vue@3.5" in installs
+
+
+def test_vue_proxy(tmp_path) -> None:
+    from quoll.languages.node.frameworks.vue.starter import proxy
+
+    (tmp_path / "vite.config.ts").write_text("plugins: [vue()],\n")
+    proxy(tmp_path, "/api", "http://back:3000")
+    assert 'server: { proxy: { "/api": "http://back:3000" } }' in (tmp_path / "vite.config.ts").read_text()
+

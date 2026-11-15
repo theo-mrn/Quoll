@@ -13,6 +13,7 @@ from tests.samples import (
     NODE_YARN_BERRY,
     NUXT,
     SVELTEKIT,
+    VUE,
 )
 
 # --------------------------------------------------------------------------- detection
@@ -164,6 +165,13 @@ def test_angular_vitest_runner(make_project) -> None:
 def test_nestjs(make_project) -> None:
     det = detect(make_project(NESTJS))
     assert (det.framework, det.test_runner) == ("nestjs", "jest")
+
+
+def test_vue_typecheck(make_project) -> None:
+    det = detect(make_project(VUE))
+    assert det.framework == "vue"
+    assert det.lint_tools == ["vue-tsc"]
+    assert "npx vue-tsc --noEmit" in runs(workflow(make_project, VUE), "lint")
 
 
 def test_prettier_leaves_quoll_files_alone() -> None:

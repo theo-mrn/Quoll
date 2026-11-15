@@ -23,7 +23,7 @@ quoll ci init
 | Language | Package managers | Lint | Tests (coverage threshold) | Frameworks |
 |---|---|---|---|---|
 | Python | pip, uv, poetry | ruff, ruff format, flake8, black, mypy | pytest | Django, FastAPI, Flask |
-| Node.js | npm, pnpm, yarn, bun | eslint, prettier, biome, tsc, any `package.json` script | vitest, jest, bun | Next.js, Nuxt, SvelteKit, Astro, Angular, NestJS |
+| Node.js | npm, pnpm, yarn, bun | eslint, prettier, biome, tsc, any `package.json` script | vitest, jest, bun | Next.js, Nuxt, SvelteKit, Astro, Angular, NestJS, Vue |
 | Go | go modules | gofmt, go vet, golangci-lint | go test | |
 | Rust | cargo | rustfmt, clippy | cargo test, nextest (cargo-llvm-cov) | |
 | Java / Kotlin | Maven, Gradle (wrappers supported) | spotless, checkstyle, ktlint, detekt, SpotBugs, PMD | JUnit via `verify` / `check`, JaCoCo coverage | Spring Boot |
@@ -39,7 +39,7 @@ Frameworks add what the language alone can't know, for example:
 - **Rails**: Brakeman, plus preparing the test database.
 - **Laravel**: `.env` and app key, then `php artisan test`.
 - **Next.js**: build cache.
-- **Nuxt, SvelteKit, Astro**: their own type checks instead of plain `tsc`.
+- **Nuxt, SvelteKit, Astro, Vue**: their own type checks (`vue-tsc`, `astro check`...) instead of plain `tsc`.
 - **Angular**: `ng test` with headless Chrome.
 
 ### Detection
@@ -483,12 +483,13 @@ From nothing to a repository whose pipeline passes on its first push:
 |---|---|---|
 | `angular` | front | Angular's own CLI (`ng new`) at the chosen major — `angular@18` — plus ESLint (angular-eslint) |
 | `react` | front | Vite's own generator (`create-vite`, TypeScript), React's major with `react@18`; Vitest + Testing Library, Prettier |
+| `vue` | front | Vite's own generator (`create-vite`, TypeScript), Vue's version with `vue@3`; Vitest + @vue/test-utils, Prettier |
 | `nextjs` | front | Next.js' own generator (`create-next-app`: App Router, ESLint, Tailwind), `nextjs@15`; standalone build, Vitest, Prettier |
 | `express` | back | quoll's template: Express (`express@4` for 4) and TypeScript, Vitest + Supertest, ESLint, `/health`, graceful shutdown |
 | `fastapi` | back | quoll's template: FastAPI with uv, pytest (TestClient), ruff, `/health` |
 | `go` | back | quoll's template: the standard library's `net/http` (Go 1.22+ routing), httptest, graceful shutdown, `/health` |
 
-**Versions.** `name@version` picks the framework's major (`react@18`) or one of its minors (`react@18.2`, `angular@20.1`, `fastapi@0.115`); companion packages (`@types/*`, angular-eslint) follow its major. `--node 22`, `--python 3.13`, `--go 1.26` the runtime: the generators then run in that runtime's image (so the dependencies and the lockfile match it), and `.nvmrc`, `.python-version` or `go.mod` make the CI and the Dockerfile use it too. Asked interactively, each framework offers its latest version and the older majors its maintainers still fix (Angular 22 to 20, React 19 and 18, Next.js 16 and 15, Express 5 and 4), or any other. A version they no longer fix is flagged at creation: the CI's dependency audit would fail on its known vulnerabilities.
+**Versions.** `name@version` picks the framework's major (`react@18`) or one of its minors (`react@18.2`, `angular@20.1`, `fastapi@0.115`); companion packages (`@types/*`, angular-eslint) follow its major. `--node 22`, `--python 3.13`, `--go 1.26` the runtime: the generators then run in that runtime's image (so the dependencies and the lockfile match it), and `.nvmrc`, `.python-version` or `go.mod` make the CI and the Dockerfile use it too. Asked interactively, each framework offers its latest version and the older majors its maintainers still fix (Angular 22 to 20, React 19 and 18, Next.js 16 and 15, Vue 3, Express 5 and 4), or any other. A version they no longer fix is flagged at creation: the CI's dependency audit would fail on its known vulnerabilities.
 
 ### Microservices
 
@@ -506,7 +507,7 @@ quoll remove service billing --keep-files    # only takes it out of the workspac
 
 `quoll remove service` does the opposite: the project leaves the members, its jobs, its compose service and `BILLING_URL`, its delivery and setup action are removed. It refuses to delete a directory with uncommitted changes.
 
-**Front-end → API.** With a front-end and a back-end, `quoll new` makes the front-end call the API on its own origin, at `/api/` (no CORS, no URL baked into the build). In development, the dev server forwards there (`proxy.conf.json` for Angular, Vite's `server.proxy`); deployed, to the URL in `BACK_URL`, which the root `compose.yaml` and the charts set — through nginx for a static site, through Next.js' own `proxy.ts` (read on each request) for Next.js:
+**Front-end → API.** With a front-end and a back-end, `quoll new` makes the front-end call the API on its own origin, at `/api/` (no CORS, no URL baked into the build). In development, the dev server forwards there (`proxy.conf.json` for Angular, Vite's `server.proxy` for React and Vue); deployed, to the URL in `BACK_URL`, which the root `compose.yaml` and the charts set — through nginx for a static site, through Next.js' own `proxy.ts` (read on each request) for Next.js:
 
 ```toml
 # front/quoll.toml
